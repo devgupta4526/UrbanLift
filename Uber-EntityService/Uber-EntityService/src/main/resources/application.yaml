@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: Uber-EntityService
+  datasource:
+    url: jdbc:mysql://localhost:3306/Uber_Db_Local
+    password: root
+    username: root
+  flyway:
+    url: jdbc:mysql://localhost:3306/Uber_Db_Local
+    user: root
+    password: root
+  jpa:
+    properties:
+      hibernate:
+        enable_lazy_load_no_trans: true
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+
+server:
+  port: 7476
+logging:
+  level:
+    org:
+      springframework:
+        data: DEBUG
+
+
+
+
+
