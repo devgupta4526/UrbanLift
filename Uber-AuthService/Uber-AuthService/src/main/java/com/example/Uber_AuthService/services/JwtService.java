@@ -36,7 +36,7 @@ public class JwtService {
     }
 
 
-    private Key  getSignKey() {
+    public Key getSignKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -45,42 +45,42 @@ public class JwtService {
         return createToken(new HashMap<>(), email);
     }
 
-    private Claims extractAllPayloads(String token){
-        return Jwts.
-                parser()
+    public Claims extractAllPayloads(String token) {
+        return Jwts
+                .parser()
                 .setSigningKey(getSignKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    private <T> T extractClaims(String token,
-                                Function<Claims, T> claimsResolver) {
+
+    public <T> T extractClaims(String token,
+                               Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllPayloads(token);
         return claimsResolver.apply(claims);
     }
 
-    private Date extractExpiration(String token){
+    public Date extractExpiration(String token) {
         return extractClaims(token, Claims::getExpiration);
     }
 
-    private String extractSubject(String token){
+    public String extractSubject(String token) {
         return extractClaims(token, Claims::getSubject);
     }
 
-    private Boolean isTokenExpired(String token){
+    public Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    private Boolean isTokenValid(String token, String email){
+    public Boolean isTokenValid(String token, String email) {
         final String userEmailFetchedFromToken = extractSubject(token);
         return email.equals(userEmailFetchedFromToken) && !isTokenExpired(token);
     }
 
-    private Object extractPayload(String token , String payloadKey){
+    public Object extractPayload(String token, String payloadKey) {
         Claims claims = extractAllPayloads(token);
         return claims.get(payloadKey);
     }
-
 
 }
