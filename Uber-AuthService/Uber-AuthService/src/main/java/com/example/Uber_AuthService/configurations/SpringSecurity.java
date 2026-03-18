@@ -1,5 +1,6 @@
 package com.example.Uber_AuthService.configurations;
 
+import com.example.Uber_AuthService.filters.JwtAuthFilter;
 import com.example.Uber_AuthService.services.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -16,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
@@ -25,7 +27,7 @@ public class SpringSecurity implements WebMvcConfigurer {
 
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http ,JwtAuthFilter jwtAuthFilter) throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
@@ -33,6 +35,8 @@ public class SpringSecurity implements WebMvcConfigurer {
                         .requestMatchers("/api/v1/auth/signin").permitAll()
                         .requestMatchers("/api/v1/auth/validate").authenticated()
                 )
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
