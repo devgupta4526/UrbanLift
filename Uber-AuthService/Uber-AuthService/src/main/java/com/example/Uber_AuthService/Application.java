@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 @SpringBootApplication
 @EnableJpaAuditing
-@EntityScan("com.example.uberentityservice.models")
+@EntityScan("com.example.Uber_EntityService.Models")
 public class Application {
 
 	public static void main(String[] args) {
