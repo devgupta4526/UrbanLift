@@ -5,10 +5,13 @@ import org.springframework.data.geo.*;
 import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.GeoOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
+
+@Service
 public class RedisLocationServiceImpl implements LocationService{
 
     private static final String DRIVER_GEO_OPS_KEY = "drivers";
