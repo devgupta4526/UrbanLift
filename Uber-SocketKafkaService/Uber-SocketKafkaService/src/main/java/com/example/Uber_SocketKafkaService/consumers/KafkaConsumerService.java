@@ -14,12 +14,16 @@ public class KafkaConsumerService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @KafkaListener(topics = "ride-request-topic")
+    @KafkaListener(
+            topics = "ride-request-topic",
+            groupId = "socket-group",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
     public void consumeRideRequest(RideRequestDto dto) {
-        System.out.println("Received ride request: " + dto);
 
-        // Push to all drivers
+        System.out.println("🔥 Received ride request from Kafka: " + dto);
+
+        // Push to all drivers via WebSocket
         messagingTemplate.convertAndSend("/topic/rideRequest", dto);
     }
-
 }

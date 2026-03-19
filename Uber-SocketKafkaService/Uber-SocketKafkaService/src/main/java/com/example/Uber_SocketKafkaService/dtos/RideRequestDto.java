@@ -11,14 +11,18 @@ import java.util.List;
 @Builder
 public class RideRequestDto {
 
+    private Long bookingId;
+
     private Long passengerId;
 
-//    private ExactLocation startLocation;
-//
-//    private ExactLocation endLocation;
+    // 📍 Location-based matching (PRIMARY)
+    private double pickupLat;
+    private double pickupLng;
 
+    private double dropLat;
+    private double dropLng;
+
+    // 🚗 Optional: targeted drivers (fallback / testing)
     private List<Long> driverIds;
-
-    private Long bookingId;
 }
 

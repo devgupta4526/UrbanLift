@@ -14,7 +14,6 @@ public class KafkaProducerService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-
     public void sendRideRequest(RideRequestDto dto) {
         kafkaTemplate.send("ride-request-topic", dto);
     }
