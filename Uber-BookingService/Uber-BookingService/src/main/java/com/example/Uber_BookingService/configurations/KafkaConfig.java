@@ -20,7 +20,7 @@ import java.util.Map;
 @Configuration
 @EnableKafka
 public class KafkaConfig {
-    
+
     @Bean
     public NewTopic rideRequestTopic() {
         return new NewTopic("ride-request-topic", 1, (short) 1);

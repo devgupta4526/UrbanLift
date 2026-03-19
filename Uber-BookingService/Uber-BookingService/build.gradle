@@ -21,6 +21,7 @@ configurations {
 
 repositories {
 	mavenCentral()
+	mavenLocal()
 }
 
 dependencies {
@@ -32,16 +33,17 @@ dependencies {
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
-	implementation('com.squareup.retrofit2:retrofit')
-	implementation('com.squareup.retrofit2:converter-gson')
+	implementation('com.squareup.retrofit2:retrofit:2.4.0')
+	implementation('com.squareup.retrofit2:converter-gson:2.4.0')
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'com.squareup.okhttp3:okhttp:4.9.0'
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client:4.1.1'
 	implementation 'org.springframework.kafka:spring-kafka'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
 }
 
 tasks.named('test') {

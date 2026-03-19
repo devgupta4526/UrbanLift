@@ -1,3 +1,25 @@
 spring:
   application:
     name: Uber-BookingService
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/uber_db_local
+    username: root
+    password: root
+
+server:
+  port: 8001
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    preferIpAddress: true
