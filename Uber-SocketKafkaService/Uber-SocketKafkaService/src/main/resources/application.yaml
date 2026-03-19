@@ -13,7 +13,11 @@ spring:
       auto-offset-reset: earliest
   jpa:
     hibernate:
-      ddl-auto:
+      ddl-auto: validate
+  datasource:
+    url: jdbc:mysql://localhost:3306/uber_db_local
+    username: root
+    password: root
 
 server:
   port: 3002

@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableDiscoveryClient
-@EntityScan("com.example.uberprojectentityservice.models")
+@EntityScan("com.example.uberentityservice.models")
 public class UberSocketKafkaServiceApplication {
 
 	public static void main(String[] args) {
