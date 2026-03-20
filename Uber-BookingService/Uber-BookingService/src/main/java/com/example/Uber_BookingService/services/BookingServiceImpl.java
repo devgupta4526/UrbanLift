@@ -8,6 +8,7 @@ import com.example.Uber_BookingService.repositories.DriverRepository;
 import com.example.Uber_BookingService.repositories.PassengerRepository;
 import com.example.Uber_EntityService.Models.Booking;
 import com.example.Uber_EntityService.Models.BookingStatus;
+import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Passenger;
 import org.springframework.web.client.RestTemplate;
 import retrofit2.Call;
@@ -141,6 +142,16 @@ public class BookingServiceImpl implements BookingService{
 
     @Override
     public UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto bookingRequestDto, Long bookingId) {
-        return null;
+        System.out.println(bookingRequestDto.getDriverId().get());
+        Optional<Driver> driver = driverRepository.findById(bookingRequestDto.getDriverId().get());
+        // TODO : if(driver.isPresent() && driver.get().isAvailable())
+        bookingRepository.updateBookingStatusAndDriverById(bookingId, BookingStatus.SCHEDULED,driver.get());
+        // TODO: driverRepository.update -> make it unavailable
+        Optional<Booking> booking = bookingRepository.findById(bookingId);
+        return UpdateBookingResponseDto.builder()
+                .bookingId(bookingId)
+                .status(booking.get().getBookingStatus())
+                .driver(Optional.ofNullable(booking.get().getDriver()))
+                .build();
     }
 }
