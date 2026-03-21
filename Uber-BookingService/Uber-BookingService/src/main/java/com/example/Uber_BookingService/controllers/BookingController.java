@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/booking")
@@ -33,6 +34,11 @@ public class BookingController {
     @GetMapping("/{bookingId}")
     public ResponseEntity<BookingDetailDto> getBooking(@PathVariable Long bookingId) {
         return ResponseEntity.ok(bookingService.getBookingById(bookingId));
+    }
+
+    @GetMapping("/passenger/{passengerId}")
+    public ResponseEntity<List<BookingDetailDto>> getBookingsByPassenger(@PathVariable Long passengerId) {
+        return ResponseEntity.ok(bookingService.getBookingsByPassengerId(passengerId));
     }
 }
 

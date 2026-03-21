@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -175,5 +176,27 @@ public class BookingServiceImpl implements BookingService{
                 .startLocation(b.getStartLocation())
                 .endLocation(b.getEndLocation())
                 .build();
+    }
+
+    @Override
+    public List<BookingDetailDto> getBookingsByPassengerId(Long passengerId) {
+        return bookingRepository.findByPassengerId(passengerId).stream()
+                .map(this::toDetailDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<BookingDetailDto> getBookingsByDriverId(Long driverId) {
+        return List.of();
+    }
+
+    @Override
+    public UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status) {
+        return null;
+    }
+
+    @Override
+    public UpdateBookingResponseDto cancelBooking(Long bookingId) {
+        return null;
     }
 }
