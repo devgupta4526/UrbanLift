@@ -10,6 +10,7 @@ import com.example.Uber_EntityService.Models.Booking;
 import com.example.Uber_EntityService.Models.BookingStatus;
 import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Passenger;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -20,12 +21,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+
+@Service
 public class BookingServiceImpl implements BookingService{
 
     private final PassengerRepository passengerRepository;
     private final BookingRepository bookingRepository;
 
-    private final RestTemplate restTemplate;
 
     private final LocationServiceApi locationServiceApi;
 
@@ -34,14 +36,12 @@ public class BookingServiceImpl implements BookingService{
 
     public BookingServiceImpl(PassengerRepository passengerRepository,
                               BookingRepository bookingRepository,
-                              RestTemplate restTemplate,
                               LocationServiceApi locationServiceApi,
                               UberSocketApi uberSocketApi,
                               DriverRepository driverRepository) {
      this.driverRepository = driverRepository;
      this.passengerRepository = passengerRepository;
      this.bookingRepository = bookingRepository;
-     this.restTemplate = restTemplate;
      this.locationServiceApi = locationServiceApi;
      this.uberSocketApi = uberSocketApi;
     }
@@ -152,6 +152,28 @@ public class BookingServiceImpl implements BookingService{
                 .bookingId(bookingId)
                 .status(booking.get().getBookingStatus())
                 .driver(Optional.ofNullable(booking.get().getDriver()))
+                .build();
+    }
+
+    @Override
+    public BookingDetailDto getBookingById(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).
+                orElseThrow(() -> new IllegalArgumentException("Booking id not found"));
+        return toDetailDto(booking);
+    }
+
+    private BookingDetailDto toDetailDto(Booking b) {
+        return BookingDetailDto.builder()
+                .id(b.getId())
+                .bookingStatus(b.getBookingStatus() != null ? b.getBookingStatus().name() : null)
+                .bookingDate(b.getBookingDate())
+                .startTime(b.getStartTime())
+                .endTime(b.getEndTime())
+                .totalDistance(b.getTotalDistance())
+                .passenger(Optional.ofNullable(b.getPassenger()))
+                .driver(Optional.ofNullable(b.getDriver()))
+                .startLocation(b.getStartLocation())
+                .endLocation(b.getEndLocation())
                 .build();
     }
 }

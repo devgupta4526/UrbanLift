@@ -40,7 +40,7 @@ public class KafkaConfig {
 
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class); // ✅ JSON, not String
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 
         return new DefaultKafkaProducerFactory<>(config);
     }
@@ -59,11 +59,11 @@ public class KafkaConfig {
         JsonDeserializer<RideResponseDto> deserializer =
                 new JsonDeserializer<>(RideResponseDto.class);
 
-        deserializer.addTrustedPackages("*"); // ✅ Trust all packages (cross-service)
+        deserializer.addTrustedPackages("*");
 
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "booking-group"); // ✅ Unique group ID
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "booking-group");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         return new DefaultKafkaConsumerFactory<>(
