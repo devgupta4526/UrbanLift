@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/location")
 public class LocationController {
-
+    private static final Logger logger = LoggerFactory.getLogger(LocationController.class);
     private LocationService locationService;
 
     public LocationController(LocationService locationService) {
@@ -43,7 +45,7 @@ public class LocationController {
             return new ResponseEntity<>(drivers, HttpStatus.OK);
 
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            logger.error("Error getting nearby drivers", e);
             return new ResponseEntity<>(new ArrayList<>(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
