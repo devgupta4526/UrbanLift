@@ -1,5 +1,6 @@
 package com.example.Uber_SocketKafkaService.producers;
 
+import com.example.Uber_SocketKafkaService.dtos.NotificationEventDto;
 import com.example.Uber_SocketKafkaService.dtos.RideRequestDto;
 import com.example.Uber_SocketKafkaService.dtos.RideResponseDto;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,5 +21,9 @@ public class KafkaProducerService {
 
     public void sendRideResponse(RideResponseDto dto) {
         kafkaTemplate.send("ride-response-topic", dto);
+    }
+
+    public void sendNotificationEvent(NotificationEventDto dto) {
+        kafkaTemplate.send("notification-events-topic", dto);
     }
 }

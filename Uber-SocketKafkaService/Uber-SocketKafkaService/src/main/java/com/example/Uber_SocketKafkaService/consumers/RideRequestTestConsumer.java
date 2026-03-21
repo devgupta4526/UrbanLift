@@ -6,9 +6,13 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class RideRequestTestConsumer {
+
+    private static final Logger logger = LoggerFactory.getLogger(RideRequestTestConsumer.class);
 
     private CountDownLatch latch = new CountDownLatch(1);
     private AtomicReference<RideRequestDto> receivedMessage = new AtomicReference<>();
@@ -22,7 +26,7 @@ public class RideRequestTestConsumer {
             properties = {"auto.offset.reset=latest"}   // ✅ only consume NEW messages
     )
     public void consume(RideRequestDto dto) {
-        System.out.println("✅ Test consumer received: " + dto);
+        logger.info("Test consumer received: {}", dto);
         receivedMessage.set(dto);
         latch.countDown();
     }

@@ -4,9 +4,13 @@ import com.example.Uber_SocketKafkaService.dtos.RideRequestDto;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class KafkaConsumerService {
+
+    private static final Logger logger = LoggerFactory.getLogger(KafkaConsumerService.class);
 
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -21,8 +25,7 @@ public class KafkaConsumerService {
     )
     public void consumeRideRequest(RideRequestDto dto) {
 
-        System.out.println("🔥 Received ride request from Kafka: " + dto);
-
+        logger.info("Received ride request from Kafka: {}", dto);
         // Push to all drivers via WebSocket
         messagingTemplate.convertAndSend("/topic/rideRequest", dto);
     }
