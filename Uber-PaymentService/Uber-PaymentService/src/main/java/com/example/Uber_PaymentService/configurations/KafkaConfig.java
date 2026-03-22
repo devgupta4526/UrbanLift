@@ -6,6 +6,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -21,6 +22,9 @@ import java.util.Map;
 @EnableKafka
 public class KafkaConfig {
 
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
+
     @Bean
     public NewTopic bookingCompletedTopic() {
         return new NewTopic("booking-completed-topic", 1, (short) 1);
@@ -31,17 +35,12 @@ public class KafkaConfig {
         return new NewTopic("payment-completed-topic", 1, (short) 1);
     }
 
-    // ================= PRODUCER =================
-    // Payment service PRODUCES payment completed events
-
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> config = new HashMap<>();
-
-        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092");
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers); // ✅ from yml
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -50,38 +49,26 @@ public class KafkaConfig {
         return new KafkaTemplate<>(producerFactory());
     }
 
-    // ================= CONSUMER =================
-    // Payment service CONSUMES booking completed events
-
     @Bean
     public ConsumerFactory<String, BookingCompletedEventDto> consumerFactory() {
-
         JsonDeserializer<BookingCompletedEventDto> deserializer =
                 new JsonDeserializer<>(BookingCompletedEventDto.class);
-
         deserializer.addTrustedPackages("*");
 
         Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092");
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers); // ✅ from yml
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "payment-group");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        return new DefaultKafkaConsumerFactory<>(
-                props,
-                new StringDeserializer(),
-                deserializer
-        );
+        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), deserializer);
     }
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, BookingCompletedEventDto>
     kafkaListenerContainerFactory() {
-
         ConcurrentKafkaListenerContainerFactory<String, BookingCompletedEventDto> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-
         factory.setConsumerFactory(consumerFactory());
-
         return factory;
     }
 }

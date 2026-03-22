@@ -4,16 +4,18 @@ import lombok.Data;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class FareEstimateDto {
-    private double estimatedFare;
-    private double baseFare;
-    private double distanceFare;
-    private double timeFare;
-    private double surgeMultiplier;
-    private double totalFare;
+    private BigDecimal estimatedFare;
+    private BigDecimal baseFare;
+    private BigDecimal distanceFare;
+    private BigDecimal timeFare;
+    private BigDecimal surgeMultiplier;
+    private BigDecimal totalFare;
 }

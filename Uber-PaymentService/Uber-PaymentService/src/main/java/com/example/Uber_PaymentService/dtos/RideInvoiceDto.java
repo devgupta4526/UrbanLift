@@ -2,7 +2,9 @@ package com.example.Uber_PaymentService.dtos;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 import lombok.*;
 
@@ -13,12 +15,12 @@ import lombok.*;
 @NoArgsConstructor
 public class RideInvoiceDto {
     private Long bookingId;
-    private double baseFare;
-    private double distanceFare;
-    private double timeFare;
-    private double surgeMultiplier;
-    private double totalFare;
-    private double commission;
-    private double driverEarnings;
-    private LocalDateTime paymentTime;
+    private BigDecimal baseFare;
+    private BigDecimal distanceFare;
+    private BigDecimal timeFare;
+    private BigDecimal surgeMultiplier;
+    private BigDecimal totalFare;
+    private BigDecimal commission;
+    private BigDecimal driverEarnings;
+    private Date paymentTime;
 }
