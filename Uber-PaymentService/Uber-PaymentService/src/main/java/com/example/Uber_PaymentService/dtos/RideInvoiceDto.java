@@ -4,7 +4,13 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
-@Data
+import lombok.*;
+
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class RideInvoiceDto {
     private Long bookingId;
     private double baseFare;

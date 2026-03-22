@@ -4,7 +4,13 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-@Data
+import lombok.*;
+
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class BookingCompletedEventDto {
     private Long bookingId;
     private Long passengerId;

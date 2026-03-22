@@ -4,7 +4,10 @@ import lombok.Data;
 
 @Data
 public class PaymentConfirmResponseDto {
-    private Long paymentId;
+    private boolean success;        // ✅ missing
+    private String paymentId;
     private String status;
     private double amount;
+
+
 }

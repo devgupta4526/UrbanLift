@@ -1,8 +1,12 @@
 package com.example.Uber_PaymentService.dtos;
 
-import lombok.Data;
+import lombok.*;
 
-@Data
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class AddMoneyToWalletDto {
     private double amount;
 }
