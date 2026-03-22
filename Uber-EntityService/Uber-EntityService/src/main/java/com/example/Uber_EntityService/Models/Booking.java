@@ -36,9 +36,13 @@ public class Booking extends BaseModel{
     @ManyToOne(fetch = FetchType.LAZY)
     private Driver driver;
 
-    @OneToOne
+    
+    @OneToOne(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+    @JoinColumn(name = "start_location_id")
     private ExactLocation startLocation;
-    @OneToOne
+
+    @OneToOne(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+    @JoinColumn(name = "end_location_id")
     private ExactLocation endLocation;
 
 
