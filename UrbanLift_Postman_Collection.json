@@ -1,0 +1,1106 @@
+{
+	"info": {
+		"_postman_id": "urbanlift-api-collection-2026",
+		"name": "UrbanLift — Complete API Collection",
+		"description": "Complete Postman collection for UrbanLift ride-hailing microservices backend.\n\nIncludes all 27 REST endpoints across 7 microservices.\n\nBase URLs:\n- Direct: Use individual service ports\n- Gateway: http://localhost:8080\n\nStartup Order:\n1. MySQL, Kafka, Redis\n2. Eureka (:8761)\n3. Auth, Driver, Location services\n4. Booking, Payment, Notification, Socket services\n5. API Gateway (:8080)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "AUTH_BASE_URL",
+			"value": "http://localhost:7475",
+			"type": "string"
+		},
+		{
+			"key": "BOOKING_BASE_URL",
+			"value": "http://localhost:8001",
+			"type": "string"
+		},
+		{
+			"key": "DRIVER_BASE_URL",
+			"value": "http://localhost:8081",
+			"type": "string"
+		},
+		{
+			"key": "LOCATION_BASE_URL",
+			"value": "http://localhost:7777",
+			"type": "string"
+		},
+		{
+			"key": "PAYMENT_BASE_URL",
+			"value": "http://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "NOTIFICATION_BASE_URL",
+			"value": "http://localhost:8083",
+			"type": "string"
+		},
+		{
+			"key": "SOCKET_BASE_URL",
+			"value": "http://localhost:3002",
+			"type": "string"
+		},
+		{
+			"key": "GATEWAY_BASE_URL",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "PASSENGER_JWT",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "DRIVER_JWT",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "PASSENGER_ID",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "DRIVER_ID",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "BOOKING_ID",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Auth Service",
+			"description": "Passenger authentication — signup, signin, validate.\nPort: 7475",
+			"item": [
+				{
+					"name": "1.1 Signup Passenger",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('PASSENGER_ID', jsonData.id);",
+									"    pm.test('Passenger created successfully', function () {",
+									"        pm.expect(jsonData.id).to.be.a('number');",
+									"        pm.expect(jsonData.email).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john.doe@example.com\",\n    \"phoneNumber\": \"+919876543210\",\n    \"password\": \"SecurePass123\",\n    \"address\": \"123 Main St, Delhi\"\n}"
+						},
+						"url": {
+							"raw": "{{AUTH_BASE_URL}}/api/v1/auth/signup/passenger",
+							"host": ["{{AUTH_BASE_URL}}"],
+							"path": ["api", "v1", "auth", "signup", "passenger"]
+						},
+						"description": "Register a new passenger account.\n\n**Classes involved:**\n- AuthController.signup()\n- AuthService.signUpPassenger()\n- PassengerRepository.save()\n\n**If fails:**\n- 500 DataIntegrityViolation → duplicate email\n- 500 JPA error → table schema mismatch (ddl-auto: validate)"
+					},
+					"response": []
+				},
+				{
+					"name": "1.2 Signin Passenger",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.test('Signin successful', function () {",
+									"        pm.expect(jsonData.success).to.be.true;",
+									"    });",
+									"    // Extract JWT from Set-Cookie header",
+									"    var cookies = pm.response.headers.get('Set-Cookie');",
+									"    if (cookies) {",
+									"        var match = cookies.match(/JWT_TOKEN=([^;]+)/);",
+									"        if (match) {",
+									"            pm.collectionVariables.set('PASSENGER_JWT', match[1]);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"SecurePass123\"\n}"
+						},
+						"url": {
+							"raw": "{{AUTH_BASE_URL}}/api/v1/auth/signin/passenger",
+							"host": ["{{AUTH_BASE_URL}}"],
+							"path": ["api", "v1", "auth", "signin", "passenger"]
+						},
+						"description": "Authenticate passenger and get JWT cookie.\n\n**Classes involved:**\n- AuthController.signin()\n- AuthenticationManager.authenticate()\n- UserDetailsServiceImpl.loadUserByUsername()\n- JwtService.createToken()\n\n**If fails:**\n- 403 → CSRF enabled, check SpringSecurity config\n- 401 UsernameNotFound → email not in DB\n- 401 BadCredentials → wrong password\n\n**Known issue:** Token is created with hardcoded 'Abc@gmail' instead of actual email."
+					},
+					"response": []
+				},
+				{
+					"name": "1.3 Validate Token",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "JWT_TOKEN={{PASSENGER_JWT}}"
+							}
+						],
+						"url": {
+							"raw": "{{AUTH_BASE_URL}}/api/v1/auth/validate",
+							"host": ["{{AUTH_BASE_URL}}"],
+							"path": ["api", "v1", "auth", "validate"]
+						},
+						"description": "Validate existing JWT token from cookie.\n\n**Classes involved:**\n- AuthController.validate()\n- JwtService.extractSubject(), isTokenValid()\n\n**If fails:**\n- 401 'No cookies found' → Cookie not sent\n- 401 'Invalid JWT_TOKEN' → Token expired or wrong secret"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Driver Service",
+			"description": "Driver auth, profile, availability, location.\nPort: 8081",
+			"item": [
+				{
+					"name": "2.1 Driver Signup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('DRIVER_ID', jsonData.id);",
+									"    pm.test('Driver created successfully', function () {",
+									"        pm.expect(jsonData.id).to.be.a('number');",
+									"        pm.expect(jsonData.driverApprovalStatus).to.equal('PENDING');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Rajesh\",\n    \"lastName\": \"Kumar\",\n    \"email\": \"rajesh.driver@example.com\",\n    \"phoneNumber\": \"+919876543211\",\n    \"password\": \"DriverPass123\",\n    \"address\": \"456 Driver Lane, Mumbai\",\n    \"licenseNumber\": \"DL-1234567890\",\n    \"aadharNumber\": \"1234-5678-9012\",\n    \"activeCity\": \"Mumbai\",\n    \"car\": {\n        \"plateNumber\": \"MH-01-AB-1234\",\n        \"colorName\": \"White\",\n        \"brand\": \"Maruti\",\n        \"model\": \"Swift Dzire\",\n        \"carType\": \"SEDAN\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/auth/signup",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "auth", "signup"]
+						},
+						"description": "Register a new driver with vehicle details.\nDriver starts as PENDING — must be APPROVED in DB before signin.\n\nValid carType: XL, SEDAN, HATCHBACK, COMPACT_SUV, SUV\n\n**Classes involved:**\n- DriverAuthController.signUp()\n- DriverAuthService.signUp(), toDto()\n- DriverRepository, CarRepository, ColorRepository\n\n**If fails:**\n- 500 DataIntegrity → duplicate email/license/aadhar\n- 500 IllegalArgument → invalid carType\n\n**After signup, approve in DB:**\nUPDATE driver SET driver_approval_status = 'APPROVED' WHERE email = 'rajesh.driver@example.com';"
+					},
+					"response": []
+				},
+				{
+					"name": "2.2 Driver Signin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.test('Driver signin successful', function () {",
+									"        pm.expect(jsonData.success).to.be.true;",
+									"    });",
+									"    var cookies = pm.response.headers.get('Set-Cookie');",
+									"    if (cookies) {",
+									"        var match = cookies.match(/DRIVER_JWT=([^;]+)/);",
+									"        if (match) {",
+									"            pm.collectionVariables.set('DRIVER_JWT', match[1]);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"rajesh.driver@example.com\",\n    \"password\": \"DriverPass123\"\n}"
+						},
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/auth/signin",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "auth", "signin"]
+						},
+						"description": "Authenticate driver. MUST be APPROVED first.\n\n**Pre-condition SQL:**\nUPDATE driver SET driver_approval_status = 'APPROVED' WHERE email = 'rajesh.driver@example.com';\n\n**Classes involved:**\n- DriverAuthController.signIn()\n- DriverRepository.findByEmail()\n- JwtAuthService.createToken()\n- PasswordEncoder.matches()\n\n**If fails:**\n- 401 success:false → Driver not APPROVED, wrong password, or email not found"
+					},
+					"response": []
+				},
+				{
+					"name": "2.3 Validate Driver Token",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "DRIVER_JWT={{DRIVER_JWT}}"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{DRIVER_JWT}}",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/auth/validate",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "auth", "validate"]
+						},
+						"description": "Validate driver JWT. Accepts cookie or Bearer token.\n\n**Classes involved:**\n- DriverAuthController.validate()\n- JwtAuthService.extractSubject(), isTokenValid()"
+					},
+					"response": []
+				},
+				{
+					"name": "2.4 Get Driver Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "DRIVER_JWT={{DRIVER_JWT}}"
+							}
+						],
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/profile",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "profile"]
+						},
+						"description": "Get authenticated driver's profile. Requires JWT.\n\n**Classes involved:**\n- DriverProfileController.getProfile()\n- DriverAuthService.toDto()\n- JwtAuthFilter.doFilterInternal()\n- DriverRepository.findByEmail()\n\n**If fails:**\n- 401 → Missing/invalid JWT\n- 500 IllegalArgument → Token email not in DB\n- 500 LazyInit → Check enable_lazy_load_no_trans in config"
+					},
+					"response": []
+				},
+				{
+					"name": "2.5 Set Driver Availability",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Cookie",
+								"value": "DRIVER_JWT={{DRIVER_JWT}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"available\": true\n}"
+						},
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/availability?lat=19.0760&lng=72.8777",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "availability"],
+							"query": [
+								{
+									"key": "lat",
+									"value": "19.0760"
+								},
+								{
+									"key": "lng",
+									"value": "72.8777"
+								}
+							]
+						},
+						"description": "Set driver availability. Optional lat/lng saves location.\n\n**Classes involved:**\n- DriverAvailabilityController.setAvailability()\n- DriverAvailabilityService.setAvailability()\n- DriverLocationService.updateLocation()\n- LocationServiceApi (Retrofit) → POST /api/location/drivers\n\n**If fails:**\n- 500 RuntimeException → Location Service unreachable (port 7777)\n- 401 → Missing auth token"
+					},
+					"response": []
+				},
+				{
+					"name": "2.6 Update Driver Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Cookie",
+								"value": "DRIVER_JWT={{DRIVER_JWT}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"latitude\": 19.0760,\n    \"longitude\": 72.8777\n}"
+						},
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/location",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "location"]
+						},
+						"description": "Update driver's current GPS location.\n\n**Classes involved:**\n- DriverLocationController.updateLocation()\n- DriverLocationService.updateLocation()\n- LocationServiceApi (Retrofit) → POST /api/location/drivers\n\n**If fails:**\n- 500 RuntimeException → Location Service unreachable\n- 500 ConnectException → Check RetrofitConfig base URL"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Booking Service",
+			"description": "Ride booking lifecycle — create, update, cancel, query.\nPort: 8001",
+			"item": [
+				{
+					"name": "3.1 Create Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('BOOKING_ID', jsonData.bookingId);",
+									"    pm.test('Booking created', function () {",
+									"        pm.expect(jsonData.bookingId).to.be.a('number');",
+									"        pm.expect(jsonData.bookingStatus).to.equal('ASSIGNING_DRIVER');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"passengerId\": {{PASSENGER_ID}},\n    \"startLocation\": {\n        \"latitude\": 19.0760,\n        \"longitude\": 72.8777\n    },\n    \"endLocation\": {\n        \"latitude\": 19.1136,\n        \"longitude\": 72.8697\n    }\n}"
+						},
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking"]
+						},
+						"description": "Create a new ride booking. Async flow: finds nearby drivers → sends ride request to Socket Service.\n\n**Classes involved:**\n- BookingController.createBooking()\n- BookingServiceImpl.createBooking()\n- BookingServiceImpl.processNearbyDrivers() [async Retrofit]\n- BookingServiceImpl.raiseRideRequestAsync() [async Retrofit]\n- LocationServiceApi (Retrofit) → POST /api/location/nearby/drivers\n- UberSocketApi (Retrofit) → POST /api/socket/newride\n- PassengerRepository.findById()\n- BookingRepository.save()\n\n**If fails:**\n- 500 IllegalArgument → Passenger not found\n- 500 RetrofitError → Location/Socket service unreachable\n- 201 but no driver → No drivers in Redis"
+					},
+					"response": []
+				},
+				{
+					"name": "3.2 Get Booking by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}"]
+						},
+						"description": "Get booking details by ID.\n\n**Classes involved:**\n- BookingController.getBooking()\n- BookingServiceImpl.getBookingById(), toDetailDto()\n- BookingRepository.findById()\n\n**If fails:**\n- 500 IllegalArgument → Booking not found"
+					},
+					"response": []
+				},
+				{
+					"name": "3.3 Update Booking (Assign Driver)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"SCHEDULED\",\n    \"driverId\": {{DRIVER_ID}}\n}"
+						},
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}"]
+						},
+						"description": "Update booking — assign driver and/or change status.\n\nValid status: SCHEDULED, CANCELLED, CAB_ARRIVED, ASSIGNING_DRIVER, IN_RIDE, COMPLETED\n\n**Classes involved:**\n- BookingController.updateBooking()\n- BookingServiceImpl.updateBooking()\n- BookingRepository.updateBookingStatusAndDriverById()\n- DriverRepository.findById()\n\n**If fails:**\n- 500 IllegalArgument → Booking or driver not found\n- 500 IllegalArgument → Invalid status enum"
+					},
+					"response": []
+				},
+				{
+					"name": "3.4 Get Bookings by Passenger",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/passenger/{{PASSENGER_ID}}",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "passenger", "{{PASSENGER_ID}}"]
+						},
+						"description": "Get all bookings for a passenger.\n\n**Classes involved:**\n- BookingController.getBookingsByPassenger()\n- BookingServiceImpl.getBookingsByPassengerId()\n- BookingRepository.findByPassengerId()"
+					},
+					"response": []
+				},
+				{
+					"name": "3.5 Get Bookings by Driver",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/driver/{{DRIVER_ID}}",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "driver", "{{DRIVER_ID}}"]
+						},
+						"description": "Get all bookings for a driver.\n\n**Classes involved:**\n- BookingController.getBookingsByDriver()\n- BookingServiceImpl.getBookingsByDriverId()\n- BookingRepository.findByDriverId()"
+					},
+					"response": []
+				},
+				{
+					"name": "3.6 Update Booking Status",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}/status?status=CAB_ARRIVED",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}", "status"],
+							"query": [
+								{
+									"key": "status",
+									"value": "CAB_ARRIVED",
+									"description": "Valid: SCHEDULED, CANCELLED, CAB_ARRIVED, ASSIGNING_DRIVER, IN_RIDE, COMPLETED"
+								}
+							]
+						},
+						"description": "Update booking status. Triggers Kafka notifications.\n\nSide effects:\n- CAB_ARRIVED → notification event\n- IN_RIDE → notification event\n- COMPLETED → notification + booking-completed-topic (Payment Service consumes)\n- CANCELLED → notification event\n\n**Classes involved:**\n- BookingController.updateStatus()\n- BookingServiceImpl.updateBookingStatus()\n- BookingServiceImpl.sendNotificationForStatusChange() [private]\n- KafkaProducerService.sendBookingCompletedEvent()\n- KafkaProducerService.sendNotificationEvent()\n- BookingRepository.updateBookingStatusById()\n\n**If fails:**\n- 500 IllegalArgument → Invalid status string\n- 500 KafkaException → Kafka unreachable"
+					},
+					"response": []
+				},
+				{
+					"name": "3.7 Cancel Booking",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}/cancel",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}", "cancel"]
+						},
+						"description": "Cancel a booking (sets status to CANCELLED).\n\n**Classes involved:**\n- BookingController.cancelBooking()\n- BookingServiceImpl.cancelBooking() → updateBookingStatus()"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Location Service",
+			"description": "Driver geolocation — save and query nearby drivers via Redis GEO.\nPort: 7777",
+			"item": [
+				{
+					"name": "4.1 Save Driver Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"driverId\": \"{{DRIVER_ID}}\",\n    \"latitude\": 19.0760,\n    \"longitude\": 72.8777\n}"
+						},
+						"url": {
+							"raw": "{{LOCATION_BASE_URL}}/api/location/drivers",
+							"host": ["{{LOCATION_BASE_URL}}"],
+							"path": ["api", "location", "drivers"]
+						},
+						"description": "Save/update a driver's GPS location in Redis GEO.\n\n**Classes involved:**\n- LocationController.saveDriverLocation()\n- LocationService (interface).saveDriverLocation()\n- RedisLocationServiceImpl.saveDriverLocation()\n- Redis GEO key: 'drivers'\n\n**If fails:**\n- 500 RedisConnectionFailure → Redis not running\n- 500 BeanCreation → Redis config commented out in application.yaml"
+					},
+					"response": []
+				},
+				{
+					"name": "4.2 Get Nearby Drivers",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"latitude\": 19.0760,\n    \"longitude\": 72.8777\n}"
+						},
+						"url": {
+							"raw": "{{LOCATION_BASE_URL}}/api/location/nearby/drivers",
+							"host": ["{{LOCATION_BASE_URL}}"],
+							"path": ["api", "location", "nearby", "drivers"]
+						},
+						"description": "Find drivers within 5 km radius.\n\n**Classes involved:**\n- LocationController.getNearbyDrivers()\n- LocationService (interface).getNearbyDrivers()\n- RedisLocationServiceImpl.getNearbyDrivers()\n- Uses Redis GEORADIUS command\n\n**If fails:**\n- 200 empty [] → No drivers saved in Redis\n- 500 RedisConnectionFailure → Redis offline\n- 500 NullPointer → Redis GEO key doesn't exist"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Payment Service",
+			"description": "Fare estimation, payment processing, wallet, billing.\nPort: 8082",
+			"item": [
+				{
+					"name": "5.1 Estimate Fare",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"startLat\": 19.0760,\n    \"startLng\": 72.8777,\n    \"endLat\": 19.1136,\n    \"endLng\": 72.8697,\n    \"carType\": \"SEDAN\"\n}"
+						},
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/fare/estimate",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "fare", "estimate"]
+						},
+						"description": "Estimate ride fare using Haversine distance formula.\n\nValid carType: XL, SEDAN, HATCHBACK, COMPACT_SUV, SUV\n\n**Classes involved:**\n- FareController.estimateFare()\n- FareCalculationService.estimateFare(), calculateDistance()\n- FareConfigRepository.findByCarType()\n- FareConfig entity\n\n**If fails:**\n- 500 RuntimeException → 'Fare config not found' → Need seed data in fare_config table\n\n**Required seed SQL:**\nINSERT INTO fare_config (car_type, base_fare, per_km_rate, per_min_rate, surge_multiplier, created_at, updated_at) VALUES\n('SEDAN', 50, 15, 2, 1.0, NOW(), NOW()),\n('HATCHBACK', 40, 12, 1.5, 1.0, NOW(), NOW()),\n('SUV', 80, 20, 3, 1.0, NOW(), NOW()),\n('XL', 100, 25, 4, 1.0, NOW(), NOW()),\n('COMPACT_SUV', 60, 18, 2.5, 1.0, NOW(), NOW());"
+					},
+					"response": []
+				},
+				{
+					"name": "5.2 Initiate Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bookingId\": {{BOOKING_ID}},\n    \"amount\": 180.00\n}"
+						},
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/payment/initiate",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "payment", "initiate"]
+						},
+						"description": "Initiate payment for a booking (mock gateway).\n\n**Classes involved:**\n- PaymentController.initiatePayment()\n- PaymentGatewayService.initiatePayment()\n- PaymentRepository.save()\n- Payment entity\n\n**If fails:**\n- 500 UnsupportedOperation → payment.gateway.mock is false\n- 500 JPA error → payment table missing"
+					},
+					"response": []
+				},
+				{
+					"name": "5.3 Confirm Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"paymentId\": 1,\n    \"razorpayOrderId\": \"mock_order_123\",\n    \"razorpayPaymentId\": \"mock_pay_456\",\n    \"razorpaySignature\": \"mock_sig_789\"\n}"
+						},
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/payment/confirm",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "payment", "confirm"]
+						},
+						"description": "Confirm a payment (mock).\n\n**Classes involved:**\n- PaymentController.confirmPayment()\n- PaymentGatewayService.confirmPayment()"
+					},
+					"response": []
+				},
+				{
+					"name": "5.4 Get Wallet Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/balance?userId={{PASSENGER_ID}}&userType=PASSENGER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "balance"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{PASSENGER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "PASSENGER",
+									"description": "PASSENGER or DRIVER"
+								}
+							]
+						},
+						"description": "Get wallet balance for a user. Auto-creates wallet if not exists.\n\n**Classes involved:**\n- WalletController.getBalance()\n- WalletService.getBalance(), createWallet()\n- WalletRepository.findByUserIdAndUserType()\n- Wallet entity\n\n**If fails:**\n- 500 IllegalArgument → Invalid userType (use PASSENGER or DRIVER uppercase)"
+					},
+					"response": []
+				},
+				{
+					"name": "5.5 Add Money to Wallet",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 500.00\n}"
+						},
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/add?userId={{PASSENGER_ID}}&userType=PASSENGER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "add"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{PASSENGER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "PASSENGER"
+								}
+							]
+						},
+						"description": "Add money to a user's wallet.\n\n**Classes involved:**\n- WalletController.addMoney()\n- WalletService.addMoney()\n- WalletRepository.findByUserIdAndUserType(), save()"
+					},
+					"response": []
+				},
+				{
+					"name": "5.6 Get Wallet Balance (Driver)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/balance?userId={{DRIVER_ID}}&userType=DRIVER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "balance"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{DRIVER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "DRIVER"
+								}
+							]
+						},
+						"description": "Get driver wallet balance."
+					},
+					"response": []
+				},
+				{
+					"name": "5.7 Get Ride Invoice",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/billing/ride/{{BOOKING_ID}}",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "billing", "ride", "{{BOOKING_ID}}"]
+						},
+						"description": "Get detailed ride invoice for a booking.\n\n**Classes involved:**\n- BillingController.getRideInvoice()\n- BillingService.getRideInvoice()\n- PaymentRepository.findByBookingId()\n\n**If fails:**\n- 500 RuntimeException → 'Payment not found for booking' → No payment record exists"
+					},
+					"response": []
+				},
+				{
+					"name": "5.8 Get Billing History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/billing/history?userId={{PASSENGER_ID}}&userType=PASSENGER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "billing", "history"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{PASSENGER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "PASSENGER"
+								}
+							]
+						},
+						"description": "Get billing history. NOTE: Currently returns empty list (stub).\n\n**Classes involved:**\n- BillingController.getBillingHistory()\n- BillingService.getBillingHistory() → returns List.of()"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Notification Service",
+			"description": "Send notifications (mock — logs to console). Also receives Kafka events.\nPort: 8083",
+			"item": [
+				{
+					"name": "6.1 Send Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"eventType\": \"DRIVER_ASSIGNED\",\n    \"userId\": {{PASSENGER_ID}},\n    \"userType\": \"PASSENGER\",\n    \"payload\": {\n        \"bookingId\": {{BOOKING_ID}},\n        \"driverId\": {{DRIVER_ID}}\n    }\n}"
+						},
+						"url": {
+							"raw": "{{NOTIFICATION_BASE_URL}}/notifications/send",
+							"host": ["{{NOTIFICATION_BASE_URL}}"],
+							"path": ["notifications", "send"]
+						},
+						"description": "Send a notification (mock implementation — logs to console).\n\nValid eventType: DRIVER_ASSIGNED, CAB_ARRIVED, RIDE_STARTED, RIDE_COMPLETED, RIDE_CANCELLED\n\n**Classes involved:**\n- NotificationController.sendNotification()\n- NotificationService.sendNotification()\n- NotificationService.sendPushNotification(), sendEmail() [mock]\n\nAlso consumed via Kafka:\n- KafkaConsumerService.consumeNotificationEvent() [topic: notification-events-topic]"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "7. Socket/Kafka Service",
+			"description": "WebSocket + Kafka real-time ride requests.\nPort: 3002",
+			"item": [
+				{
+					"name": "7.1 Raise Ride Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bookingId\": {{BOOKING_ID}},\n    \"passengerId\": {{PASSENGER_ID}},\n    \"pickupLat\": 19.0760,\n    \"pickupLng\": 72.8777,\n    \"dropLat\": 19.1136,\n    \"dropLng\": 72.8697,\n    \"driverIds\": [1, 2, 3]\n}"
+						},
+						"url": {
+							"raw": "{{SOCKET_BASE_URL}}/api/socket/newride",
+							"host": ["{{SOCKET_BASE_URL}}"],
+							"path": ["api", "socket", "newride"]
+						},
+						"description": "Raise a ride request — broadcasts to nearby drivers via Kafka/WebSocket.\n\n**Classes involved:**\n- DriverRequestController.raiseRideRequest()\n- KafkaProducerService.sendRideRequest()\n- KafkaConsumerService.consumeRideRequest() [consumes and broadcasts via WebSocket]\n- WebSocketConfig [STOMP endpoint: /ws]\n\n**WebSocket flow:**\nDrivers connect to ws://localhost:3002/ws\nReceive ride requests on /topic/rideRequest/{driverId}\nRespond via /app/rideResponse/{userId}\n\n**If fails:**\n- 500 KafkaException → Kafka unreachable\n- 200 but drivers don't get it → WebSocket not connected"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "8. E2E: Complete Ride Flow",
+			"description": "End-to-end test: Register → Book → Ride → Pay",
+			"item": [
+				{
+					"name": "Step 1: Register Passenger",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Test\",\n    \"lastName\": \"Passenger\",\n    \"email\": \"test.passenger@e2e.com\",\n    \"phoneNumber\": \"+919999000001\",\n    \"password\": \"Test1234\",\n    \"address\": \"E2E Test Address\"\n}"
+						},
+						"url": {
+							"raw": "{{AUTH_BASE_URL}}/api/v1/auth/signup/passenger",
+							"host": ["{{AUTH_BASE_URL}}"],
+							"path": ["api", "v1", "auth", "signup", "passenger"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 2: Register Driver",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Test\",\n    \"lastName\": \"Driver\",\n    \"email\": \"test.driver@e2e.com\",\n    \"phoneNumber\": \"+919999000002\",\n    \"password\": \"Test1234\",\n    \"address\": \"E2E Driver Address\",\n    \"licenseNumber\": \"DL-E2E-001\",\n    \"aadharNumber\": \"9999-0000-0001\",\n    \"activeCity\": \"Mumbai\",\n    \"car\": {\n        \"plateNumber\": \"MH-99-ZZ-0001\",\n        \"colorName\": \"Black\",\n        \"brand\": \"Toyota\",\n        \"model\": \"Etios\",\n        \"carType\": \"SEDAN\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{DRIVER_BASE_URL}}/api/v1/driver/auth/signup",
+							"host": ["{{DRIVER_BASE_URL}}"],
+							"path": ["api", "v1", "driver", "auth", "signup"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 3: Save Driver Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"driverId\": \"{{DRIVER_ID}}\",\n    \"latitude\": 19.0760,\n    \"longitude\": 72.8777\n}"
+						},
+						"url": {
+							"raw": "{{LOCATION_BASE_URL}}/api/location/drivers",
+							"host": ["{{LOCATION_BASE_URL}}"],
+							"path": ["api", "location", "drivers"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 4: Add Wallet Balance",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": 1000.00\n}"
+						},
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/add?userId={{PASSENGER_ID}}&userType=PASSENGER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "add"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{PASSENGER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "PASSENGER"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 5: Create Booking",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"passengerId\": {{PASSENGER_ID}},\n    \"startLocation\": {\n        \"latitude\": 19.0760,\n        \"longitude\": 72.8777\n    },\n    \"endLocation\": {\n        \"latitude\": 19.1136,\n        \"longitude\": 72.8697\n    }\n}"
+						},
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 6: Assign Driver to Booking",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"SCHEDULED\",\n    \"driverId\": {{DRIVER_ID}}\n}"
+						},
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 7: Cab Arrived",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}/status?status=CAB_ARRIVED",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}", "status"],
+							"query": [
+								{
+									"key": "status",
+									"value": "CAB_ARRIVED"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 8: Start Ride",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}/status?status=IN_RIDE",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}", "status"],
+							"query": [
+								{
+									"key": "status",
+									"value": "IN_RIDE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 9: Complete Ride",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{BOOKING_BASE_URL}}/api/v1/booking/{{BOOKING_ID}}/status?status=COMPLETED",
+							"host": ["{{BOOKING_BASE_URL}}"],
+							"path": ["api", "v1", "booking", "{{BOOKING_ID}}", "status"],
+							"query": [
+								{
+									"key": "status",
+									"value": "COMPLETED"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 10: Get Ride Invoice",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/billing/ride/{{BOOKING_ID}}",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "billing", "ride", "{{BOOKING_ID}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 11: Check Passenger Wallet",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/balance?userId={{PASSENGER_ID}}&userType=PASSENGER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "balance"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{PASSENGER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "PASSENGER"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 12: Check Driver Wallet",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{PAYMENT_BASE_URL}}/api/v1/wallet/balance?userId={{DRIVER_ID}}&userType=DRIVER",
+							"host": ["{{PAYMENT_BASE_URL}}"],
+							"path": ["api", "v1", "wallet", "balance"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{DRIVER_ID}}"
+								},
+								{
+									"key": "userType",
+									"value": "DRIVER"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
