@@ -20,7 +20,7 @@ public class BillingService {
     public RideInvoiceDto getRideInvoice(Long bookingId) {
         List<Payment> payments = paymentRepository.findByBookingId(bookingId);
         if (payments.isEmpty()) {
-            throw new RuntimeException("Payment not found for booking: " + bookingId);
+            throw new IllegalArgumentException("Payment not found for booking: " + bookingId);
         }
 
         Payment payment = payments.get(0);

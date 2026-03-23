@@ -2,6 +2,7 @@ package com.example.Uber_DriverService.services;
 
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,7 +49,8 @@ public class JwtAuthService {
         try {
             String subject = extractSubject(token);
             return email.equals(subject) && !isTokenExpired(token);
-        } catch (Exception e) {
+        /* REMOVED: catch (Exception e) — use JwtException only so programming errors fail loudly in dev/tests. */
+        } catch (JwtException e) {
             return false;
         }
     }

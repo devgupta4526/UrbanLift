@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -34,6 +35,9 @@ public class PaymentGatewayService {
     }
 
     public PaymentInitiationResponseDto initiatePayment(PaymentInitiationDto request) {
+        if (request.getAmount() <= 0) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
         if (mock) {
             // Mock implementation
             PaymentInitiationResponseDto response = new PaymentInitiationResponseDto();
@@ -49,7 +53,8 @@ public class PaymentGatewayService {
                     .status(Payment.PaymentStatus.PENDING)
                     .gatewayOrderId(response.getOrderId())
                     .build();
-            paymentRepository.save(payment);
+            payment = paymentRepository.save(payment);
+            response.setPaymentId(payment.getId());
 
             return response;
         }
@@ -57,18 +62,25 @@ public class PaymentGatewayService {
         throw new UnsupportedOperationException("Real payment gateway not implemented");
     }
 
+    @Transactional
     public PaymentConfirmResponseDto confirmPayment(PaymentConfirmDto confirmDto) {
         if (mock) {
-            // Mock confirmation
+            if (confirmDto.getPaymentId() == null) {
+                throw new IllegalArgumentException("paymentId is required");
+            }
+            Payment payment = paymentRepository.findById(confirmDto.getPaymentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + confirmDto.getPaymentId()));
+            payment.setStatus(Payment.PaymentStatus.COMPLETED);
+            if (confirmDto.getRazorpayPaymentId() != null) {
+                payment.setGatewayPaymentId(confirmDto.getRazorpayPaymentId());
+            }
+            paymentRepository.save(payment);
+
             PaymentConfirmResponseDto response = new PaymentConfirmResponseDto();
             response.setSuccess(true);
-            response.setPaymentId("mock_payment_" + System.currentTimeMillis());
+            response.setPaymentId(String.valueOf(payment.getId()));
             response.setStatus("COMPLETED");
-
-            // Update payment status
-            // In real implementation, find by gatewayOrderId
-            // For mock, assume success
-
+            response.setAmount(payment.getAmount().doubleValue());
             return response;
         }
         // Real implementation

@@ -7,7 +7,10 @@ import com.example.Uber_AuthService.dto.PassengerDto;
 import com.example.Uber_AuthService.dto.PassengerSignUpRequestDto;
 import com.example.Uber_AuthService.services.AuthService;
 import com.example.Uber_AuthService.services.JwtService;
+import com.example.Uber_AuthService.util.EmailNormalizer;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.Cookie;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -18,11 +21,15 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
@@ -38,16 +45,17 @@ public class AuthController {
 
 
     @PostMapping("/signup/passenger")
-    public ResponseEntity<PassengerDto> signup(@RequestBody PassengerSignUpRequestDto passengerSignUpRequestDto) {
+    public ResponseEntity<PassengerDto> signup(@Valid @RequestBody PassengerSignUpRequestDto passengerSignUpRequestDto) {
         PassengerDto passengerDto = authService.signUpPassenger(passengerSignUpRequestDto);
         return new ResponseEntity<>(passengerDto, HttpStatus.CREATED);
     }
 
 
     @PostMapping("/signin/passenger")
-    public ResponseEntity<AuthResponseDto> signin(@RequestBody AuthRequestDto  authRequestDto ,
+    public ResponseEntity<AuthResponseDto> signin(@Valid @RequestBody AuthRequestDto authRequestDto,
                                                   HttpServletResponse response) {
 
+        authRequestDto.setEmail(EmailNormalizer.normalize(authRequestDto.getEmail()));
         Authentication authentication = authenticationManager.authenticate(new
                 UsernamePasswordAuthenticationToken(authRequestDto.getEmail(), authRequestDto.getPassword()));
 
@@ -93,7 +101,9 @@ public class AuthController {
                 );
             }
         }
-        catch (Exception e) {
+        /* REMOVED: catch (Exception e) — hid non-JWT bugs. Narrowed to JwtException. */
+        catch (JwtException e) {
+            log.debug("JWT validation failed: {}", e.getMessage());
             return new ResponseEntity<>("Invalid JWT_TOKEN", HttpStatus.UNAUTHORIZED);
         }
         return new ResponseEntity<>("Invalid token", HttpStatus.UNAUTHORIZED);

@@ -11,6 +11,7 @@ import com.example.Uber_EntityService.Models.BookingStatus;
 import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Booking;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -31,4 +32,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Transactional
     @Query("UPDATE Booking b SET b.bookingStatus = :status WHERE b.id = :id ")
     void updateBookingStatusById(@Param("id") Long id, @Param("status") BookingStatus status);
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.passenger.id = :passengerId AND b.bookingStatus IN :statuses")
+    long countByPassengerIdAndBookingStatusIn(@Param("passengerId") Long passengerId,
+                                              @Param("statuses") Collection<BookingStatus> statuses);
 }

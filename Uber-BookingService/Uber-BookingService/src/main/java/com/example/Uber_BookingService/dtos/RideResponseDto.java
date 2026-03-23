@@ -11,6 +11,8 @@ public class RideResponseDto {
 
     public Boolean response;
     public Long bookingId;
+    /** Required when {@code response} is true (driver accepted). */
+    public Long driverId;
 
 }
 

@@ -21,5 +21,8 @@ public interface BookingService {
     UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status);
 
     UpdateBookingResponseDto cancelBooking(Long bookingId);
+
+    /** Internal/lightweight API for other services (e.g. Socket notifications). */
+    Long getPassengerIdForBooking(Long bookingId);
 }
 

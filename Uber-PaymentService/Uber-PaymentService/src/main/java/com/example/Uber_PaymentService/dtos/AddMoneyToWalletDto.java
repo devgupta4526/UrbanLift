@@ -1,5 +1,6 @@
 package com.example.Uber_PaymentService.dtos;
 
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 @Getter
@@ -8,5 +9,6 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AddMoneyToWalletDto {
+    @Positive(message = "amount must be positive")
     private double amount;
 }

@@ -1,7 +1,6 @@
 package com.example.Uber_PaymentService.dtos;
 
-import lombok.Data;
-
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Getter
@@ -10,6 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PaymentConfirmDto {
+    @NotNull
     private Long paymentId;
     private String razorpayOrderId;
     private String razorpayPaymentId;

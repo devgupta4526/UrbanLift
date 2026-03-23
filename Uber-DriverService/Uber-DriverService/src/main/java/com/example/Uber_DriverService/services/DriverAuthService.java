@@ -3,10 +3,14 @@ package com.example.Uber_DriverService.services;
 
 
 import com.example.Uber_DriverService.dtos.*;
+import com.example.Uber_DriverService.util.EmailNormalizer;
 import com.example.Uber_EntityService.Models.*;
 import com.example.Uber_DriverService.repositories.*;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class DriverAuthService {
@@ -24,14 +28,15 @@ public class DriverAuthService {
     }
 
     public DriverDto signUp(DriverSignUpRequestDto dto) {
-        if (driverRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Driver with email already exists: " + dto.getEmail());
+        String email = EmailNormalizer.normalize(dto.getEmail());
+        if (driverRepository.findByEmail(email).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
         }
 
         Driver driver = Driver.builder()
                 .firstName(dto.getFirstName())
                 .lastName(dto.getLastName())
-                .email(dto.getEmail())
+                .email(email)
                 .phoneNumber(dto.getPhoneNumber())
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .address(dto.getAddress())
@@ -43,7 +48,11 @@ public class DriverAuthService {
                 .rating(0.0)
                 .build();
 
-        driver = driverRepository.save(driver);
+        try {
+            driver = driverRepository.save(driver);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email, license, or Aadhar already exists", ex);
+        }
 
         if (dto.getCar() != null) {
             Color color = colorRepository.findByName(dto.getCar().getColorName())

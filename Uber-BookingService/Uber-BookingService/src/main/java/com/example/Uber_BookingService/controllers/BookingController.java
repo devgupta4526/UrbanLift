@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/booking")
@@ -23,6 +24,12 @@ public class BookingController {
     @PostMapping
     public ResponseEntity<CreateBookingResponseDto> createBooking(@RequestBody CreateBookingDto createBookingDto) throws IOException {
         return new ResponseEntity<>(bookingService.createBooking(createBookingDto), HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{bookingId}/passenger-id")
+    public ResponseEntity<Map<String, Long>> getPassengerIdForBooking(@PathVariable Long bookingId) {
+        Long passengerId = bookingService.getPassengerIdForBooking(bookingId);
+        return ResponseEntity.ok(Map.of("passengerId", passengerId));
     }
 
     @GetMapping("/{bookingId}")

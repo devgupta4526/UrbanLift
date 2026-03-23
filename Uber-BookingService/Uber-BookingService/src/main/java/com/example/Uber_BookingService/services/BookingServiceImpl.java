@@ -13,23 +13,31 @@ import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Passenger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 @Service
-public class BookingServiceImpl implements BookingService{
+public class BookingServiceImpl implements BookingService {
+
+    private static final List<BookingStatus> ACTIVE_BOOKING_STATUSES = List.of(
+            BookingStatus.ASSIGNING_DRIVER,
+            BookingStatus.SCHEDULED,
+            BookingStatus.CAB_ARRIVED,
+            BookingStatus.IN_RIDE);
 
     private final PassengerRepository passengerRepository;
     private final BookingRepository bookingRepository;
@@ -55,12 +63,22 @@ public class BookingServiceImpl implements BookingService{
      this.uberSocketApi = uberSocketApi;
      this.kafkaProducerService = kafkaProducerService;
     }
+
     @Override
+    @Transactional
     public CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails) {
-        Optional<Passenger> passenger = passengerRepository.findById(bookingDetails.getPassengerId());
-        if (passenger.isEmpty()) {
-            throw new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId());
+        validateCreateBookingPayload(bookingDetails);
+
+        Passenger passenger = passengerRepository.findById(bookingDetails.getPassengerId())
+                .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId()));
+
+        long activeCount = bookingRepository.countByPassengerIdAndBookingStatusIn(
+                passenger.getId(), ACTIVE_BOOKING_STATUSES);
+        if (activeCount > 0 || passenger.getActiveBooking() != null) {
+            throw new IllegalStateException(
+                    "Passenger already has an active booking. Finish or cancel it before booking again.");
         }
+
         Date now = new Date();
         Booking booking = Booking.builder()
                 .bookingStatus(BookingStatus.ASSIGNING_DRIVER)
@@ -69,9 +87,12 @@ public class BookingServiceImpl implements BookingService{
                 .endTime(now)
                 .startLocation(bookingDetails.getStartLocation())
                 .endLocation(bookingDetails.getEndLocation())
-                .passenger(passenger.get())
+                .passenger(passenger)
                 .build();
         Booking newBooking = bookingRepository.save(booking);
+
+        passenger.setActiveBooking(newBooking);
+        passengerRepository.save(passenger);
 
         NearbyDriversRequestDto request = NearbyDriversRequestDto.builder()
                 .latitude(bookingDetails.getStartLocation().getLatitude())
@@ -80,16 +101,42 @@ public class BookingServiceImpl implements BookingService{
 
         processNearbyDrivers(request, bookingDetails, newBooking.getId());
 
-        //
-
-
         return CreateBookingResponseDto.builder()
                 .bookingId(newBooking.getId())
                 .bookingStatus(newBooking.getBookingStatus().toString())
                 .build();
+    }
 
+    private void validateCreateBookingPayload(CreateBookingDto bookingDetails) {
+        if (bookingDetails.getPassengerId() == null) {
+            throw new IllegalArgumentException("passengerId is required");
+        }
+        if (bookingDetails.getStartLocation() == null || bookingDetails.getEndLocation() == null) {
+            throw new IllegalArgumentException("startLocation and endLocation are required");
+        }
+        validateCoordinates(bookingDetails.getStartLocation().getLatitude(),
+                bookingDetails.getStartLocation().getLongitude(), "startLocation");
+        validateCoordinates(bookingDetails.getEndLocation().getLatitude(),
+                bookingDetails.getEndLocation().getLongitude(), "endLocation");
+    }
 
+    private static void validateCoordinates(Double lat, Double lng, String field) {
+        if (lat == null || lng == null) {
+            throw new IllegalArgumentException(field + ": latitude and longitude are required");
+        }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            throw new IllegalArgumentException(field + ": coordinates out of valid range");
+        }
+    }
 
+    @Override
+    public Long getPassengerIdForBooking(Long bookingId) {
+        Booking b = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        if (b.getPassenger() == null) {
+            throw new IllegalStateException("Booking has no passenger");
+        }
+        return b.getPassenger().getId();
     }
 
     private void processNearbyDrivers(NearbyDriversRequestDto request, CreateBookingDto bookingDetails, Long bookingId) {
@@ -130,7 +177,7 @@ public class BookingServiceImpl implements BookingService{
                     try {
                         raiseRideRequestAsync(rideRequestDto);
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
+                        logger.error("Failed to enqueue ride request to socket service for booking {}", bookingId, e);
                     }
 
                 } else {
@@ -140,7 +187,8 @@ public class BookingServiceImpl implements BookingService{
 
             @Override
             public void onFailure(Call<DriverLocationDto[]> call, Throwable t) {
-                t.printStackTrace();
+                // REMOVED: t.printStackTrace() — use structured logging for production observability.
+                logger.error("Location service call failed while fetching nearby drivers for booking {}", bookingId, t);
             }
         });
     }
@@ -182,29 +230,22 @@ public class BookingServiceImpl implements BookingService{
                 : BookingStatus.SCHEDULED;
 
         Driver driver = null;
-//        if (bookingRequestDto.getDriverId() != null && bookingRequestDto.getDriverId().isPresent()) {
-//            Long driverId = bookingRequestDto.getDriverId().get();
-//            Optional<Driver> driverOpt = driverRepository.findById(driverId);
-//            if (driverOpt.isPresent()) {
-//                driver = driverOpt.get();
-//            }
-//        }
-        if(bookingRequestDto.getDriverId() != null){
-            driver = driverRepository.findById(bookingRequestDto.getDriverId()).
-                    orElseThrow(() -> new IllegalArgumentException("Driver not found: "
+        if (bookingRequestDto.getDriverId() != null) {
+            driver = driverRepository.findById(bookingRequestDto.getDriverId())
+                    .orElseThrow(() -> new IllegalArgumentException("Driver not found: "
                             + bookingRequestDto.getDriverId()));
-
         }
         bookingRepository.updateBookingStatusAndDriverById(bookingId, status, driver);
 
-//        Optional<Booking> booking = bookingRepository.findById(bookingId);
+        if (status == BookingStatus.COMPLETED || status == BookingStatus.CANCELLED) {
+            clearPassengerActiveBookingIfMatches(bookingId);
+        }
+
         Booking booking = bookingRepository.findById(bookingId).orElseThrow(
                 () -> new IllegalArgumentException("Booking not found: " + bookingId)
         );
         return UpdateBookingResponseDto.builder()
                 .bookingId(bookingId)
-//                .status(booking.get().getBookingStatus())
-//                .driver(Optional.ofNullable(booking.get().getDriver()))
                 .status(booking.getBookingStatus())
                 .driver(Optional.ofNullable(booking.getDriver()))
                 .build();
@@ -232,35 +273,37 @@ public class BookingServiceImpl implements BookingService{
     }
 
     @Override
+    @Transactional
     public UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         BookingStatus newStatus = BookingStatus.valueOf(status);
         bookingRepository.updateBookingStatusById(bookingId, newStatus);
-        Optional<Booking> updated = bookingRepository.findById(bookingId);
+        Booking updated = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
 
-        // Send notification event
-        sendNotificationForStatusChange(updated.get(), newStatus);
+        sendNotificationForStatusChange(updated, newStatus);
 
-        // Publish event if completed
         if (newStatus == BookingStatus.COMPLETED) {
             BookingCompletedEventDto event = new BookingCompletedEventDto();
             event.setBookingId(bookingId);
-            event.setPassengerId(updated.get().getPassenger().getId());
-            if (updated.get().getDriver() != null) {
-                event.setDriverId(updated.get().getDriver().getId());
+            event.setPassengerId(updated.getPassenger().getId());
+            if (updated.getDriver() != null) {
+                event.setDriverId(updated.getDriver().getId());
             }
-            event.setTotalDistance(BigDecimal.valueOf(updated.get().getTotalDistance()));
-            // Assume fare is stored in booking or calculate
-            // For now, set a default
-            event.setFare(BigDecimal.valueOf(100.0)); // TODO: get from booking
+            event.setTotalDistance(BigDecimal.valueOf(updated.getTotalDistance()));
+            event.setFare(estimateFareForCompletedRide(updated));
             kafkaProducerService.sendBookingCompletedEvent(event);
+        }
+
+        if (newStatus == BookingStatus.COMPLETED || newStatus == BookingStatus.CANCELLED) {
+            clearPassengerActiveBookingIfMatches(bookingId);
         }
 
         return UpdateBookingResponseDto.builder()
                 .bookingId(bookingId)
-                .status(updated.get().getBookingStatus())
-                .driver(Optional.ofNullable(updated.get().getDriver()))
+                .status(updated.getBookingStatus())
+                .driver(Optional.ofNullable(updated.getDriver()))
                 .build();
     }
 
@@ -309,5 +352,30 @@ public class BookingServiceImpl implements BookingService{
         event.setUserType("PASSENGER");
         // Add payload if needed
         kafkaProducerService.sendNotificationEvent(event);
+    }
+
+    /**
+     * Fare estimate for payment pipeline when no dedicated quote is stored on {@link Booking}
+     * (base + per-km using {@link Booking#getTotalDistance()} as km, minimum 1 km).
+     */
+    private static BigDecimal estimateFareForCompletedRide(Booking booking) {
+        long km = Math.max(booking.getTotalDistance(), 1L);
+        return BigDecimal.valueOf(50.0)
+                .add(BigDecimal.valueOf(km).multiply(BigDecimal.valueOf(12.0)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void clearPassengerActiveBookingIfMatches(Long bookingId) {
+        bookingRepository.findById(bookingId).ifPresent(b -> {
+            Passenger p = b.getPassenger();
+            if (p == null) {
+                return;
+            }
+            Booking active = p.getActiveBooking();
+            if (active != null && Objects.equals(active.getId(), bookingId)) {
+                p.setActiveBooking(null);
+                passengerRepository.save(p);
+            }
+        });
     }
 }

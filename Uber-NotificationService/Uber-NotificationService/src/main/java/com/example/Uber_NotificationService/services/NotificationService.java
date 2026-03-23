@@ -11,6 +11,9 @@ public class NotificationService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
 
     public void sendNotification(NotificationEventDto event) {
+        if (event == null) {
+            throw new IllegalArgumentException("event is required");
+        }
         logger.info("Sending notification for event: {} to user: {}", event.getEventType(), event.getUserId());
 
         // Mock implementation - in real world, integrate with FCM, Twilio, etc.

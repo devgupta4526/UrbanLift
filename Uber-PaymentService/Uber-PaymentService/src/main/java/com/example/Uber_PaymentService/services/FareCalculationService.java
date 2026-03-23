@@ -23,8 +23,14 @@ public class FareCalculationService {
                 request.getEndLat(), request.getEndLng()
         );
 
-        FareConfig config = fareConfigRepository.findByCarType(CarType.valueOf(request.getCarType()))
-                .orElseThrow(() -> new RuntimeException("Fare config not found for car type: " + request.getCarType()));
+        final CarType carType;
+        try {
+            carType = CarType.valueOf(request.getCarType());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid car type: " + request.getCarType(), ex);
+        }
+        FareConfig config = fareConfigRepository.findByCarType(carType)
+                .orElseThrow(() -> new IllegalArgumentException("Fare config not found for car type: " + request.getCarType()));
 
         BigDecimal baseFare        = config.getBaseFare();
         BigDecimal perKmRate       = config.getPerKmRate();

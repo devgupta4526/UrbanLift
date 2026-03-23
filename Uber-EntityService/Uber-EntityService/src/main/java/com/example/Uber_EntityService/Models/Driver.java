@@ -20,6 +20,8 @@ import java.util.List;
 public class Driver extends BaseModel{
     private String firstName;
     private String lastName;
+
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
     private String phoneNumber;
     private String password;

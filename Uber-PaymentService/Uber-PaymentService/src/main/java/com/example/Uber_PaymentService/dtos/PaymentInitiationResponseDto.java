@@ -10,6 +10,8 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PaymentInitiationResponseDto {
+    /** Internal id — use with POST /payment/confirm */
+    private Long paymentId;
     private String orderId;
     private double amount;
     private String currency;

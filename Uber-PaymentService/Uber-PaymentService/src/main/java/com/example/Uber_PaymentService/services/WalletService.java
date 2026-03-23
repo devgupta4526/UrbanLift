@@ -16,7 +16,7 @@ public class WalletService {
     private WalletRepository walletRepository;
 
     public WalletBalanceDto getBalance(Long userId, String userType) {
-        UserType type = UserType.valueOf(userType.toUpperCase());
+        UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
                 .orElseGet(() -> createWallet(userId, type));
 
@@ -36,12 +36,12 @@ public class WalletService {
     }
 
     public void deductMoney(Long userId, String userType, double amount) {
-        UserType type = UserType.valueOf(userType.toUpperCase());
+        UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
-                .orElseThrow(() -> new RuntimeException("Wallet not found for userId: " + userId));
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for userId: " + userId));
 
         if (wallet.getBalance().compareTo(BigDecimal.valueOf(amount)) < 0) {
-            throw new RuntimeException("Insufficient balance in wallet for userId: " + userId);
+            throw new IllegalStateException("Insufficient balance in wallet for userId: " + userId);
         }
 
 
@@ -50,13 +50,24 @@ public class WalletService {
     }
 
     public void creditMoney(Long userId, String userType, double amount) {
-        UserType type = UserType.valueOf(userType.toUpperCase());
+        UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
                 .orElseGet(() -> createWallet(userId, type));
 
 
         wallet.setBalance(wallet.getBalance().add(BigDecimal.valueOf(amount)));
         walletRepository.save(wallet);
+    }
+
+    private static UserType parseUserType(String userType) {
+        if (userType == null || userType.isBlank()) {
+            throw new IllegalArgumentException("userType is required (PASSENGER or DRIVER)");
+        }
+        try {
+            return UserType.valueOf(userType.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid userType: " + userType, ex);
+        }
     }
 
     private Wallet createWallet(Long userId, UserType userType) {

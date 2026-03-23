@@ -19,10 +19,17 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import com.example.Uber_DriverService.util.EmailNormalizer;
+import io.jsonwebtoken.JwtException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/v1/driver/auth")
 public class DriverAuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(DriverAuthController.class);
 
     private final DriverAuthService driverAuthService;
     private final JwtAuthService jwtService;
@@ -37,14 +44,15 @@ public class DriverAuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<DriverDto> signUp(@RequestBody DriverSignUpRequestDto dto) {
+    public ResponseEntity<DriverDto> signUp(@Valid @RequestBody DriverSignUpRequestDto dto) {
         DriverDto driver = driverAuthService.signUp(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(driver);
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<AuthResponseDto> signIn(@RequestBody AuthRequestDto dto, HttpServletResponse response) {
-        return driverRepository.findByEmail(dto.getEmail())
+    public ResponseEntity<AuthResponseDto> signIn(@Valid @RequestBody AuthRequestDto dto, HttpServletResponse response) {
+        String email = EmailNormalizer.normalize(dto.getEmail());
+        return driverRepository.findByEmail(email)
                 .filter(d -> d.getDriverApprovalStatus() == DriverApprovalStatus.APPROVED)
                 .filter(d -> passwordEncoder.matches(dto.getPassword(), d.getPassword()))
                 .map(driver -> {
@@ -85,7 +93,9 @@ public class DriverAuthController {
             if (jwtService.isTokenValid(token, email)) {
                 return ResponseEntity.ok(AuthResponseDto.builder().success(true).build());
             }
-        } catch (Exception e) {
+        /* REMOVED: catch (Exception e) — narrowed to JwtException for token parsing/validation failures. */
+        } catch (JwtException e) {
+            log.debug("Driver JWT validation failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");

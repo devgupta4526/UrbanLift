@@ -2,6 +2,7 @@ package com.example.Uber_NotificationService.controllers;
 
 import com.example.Uber_NotificationService.dtos.NotificationEventDto;
 import com.example.Uber_NotificationService.services.NotificationService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +17,7 @@ public class NotificationController {
     }
 
     @PostMapping("/send")
-    public ResponseEntity<String> sendNotification(@RequestBody NotificationEventDto event) {
+    public ResponseEntity<String> sendNotification(@Valid @RequestBody NotificationEventDto event) {
         notificationService.sendNotification(event);
         return ResponseEntity.ok("Notification sent successfully");
     }
