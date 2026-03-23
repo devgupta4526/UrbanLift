@@ -182,21 +182,31 @@ public class BookingServiceImpl implements BookingService{
                 : BookingStatus.SCHEDULED;
 
         Driver driver = null;
-        if (bookingRequestDto.getDriverId() != null && bookingRequestDto.getDriverId().isPresent()) {
-            Long driverId = bookingRequestDto.getDriverId().get();
-            Optional<Driver> driverOpt = driverRepository.findById(driverId);
-            if (driverOpt.isPresent()) {
-                driver = driverOpt.get();
-            }
-        }
+//        if (bookingRequestDto.getDriverId() != null && bookingRequestDto.getDriverId().isPresent()) {
+//            Long driverId = bookingRequestDto.getDriverId().get();
+//            Optional<Driver> driverOpt = driverRepository.findById(driverId);
+//            if (driverOpt.isPresent()) {
+//                driver = driverOpt.get();
+//            }
+//        }
+        if(bookingRequestDto.getDriverId() != null){
+            driver = driverRepository.findById(bookingRequestDto.getDriverId()).
+                    orElseThrow(() -> new IllegalArgumentException("Driver not found: "
+                            + bookingRequestDto.getDriverId()));
 
+        }
         bookingRepository.updateBookingStatusAndDriverById(bookingId, status, driver);
 
-        Optional<Booking> booking = bookingRepository.findById(bookingId);
+//        Optional<Booking> booking = bookingRepository.findById(bookingId);
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(
+                () -> new IllegalArgumentException("Booking not found: " + bookingId)
+        );
         return UpdateBookingResponseDto.builder()
                 .bookingId(bookingId)
-                .status(booking.get().getBookingStatus())
-                .driver(Optional.ofNullable(booking.get().getDriver()))
+//                .status(booking.get().getBookingStatus())
+//                .driver(Optional.ofNullable(booking.get().getDriver()))
+                .status(booking.getBookingStatus())
+                .driver(Optional.ofNullable(booking.getDriver()))
                 .build();
     }
 

@@ -68,7 +68,7 @@ public class DriverRequestController {
             if (driverId != null) {
                 UpdateBookingRequestDto updateRequest = UpdateBookingRequestDto.builder()
                         .status("SCHEDULED")
-                        .driverId(Optional.of(driverId))
+                        .driverId(driverId)
                         .build();
 
                 String url = "http://localhost:8001/api/v1/booking/" + responseDto.getBookingId();

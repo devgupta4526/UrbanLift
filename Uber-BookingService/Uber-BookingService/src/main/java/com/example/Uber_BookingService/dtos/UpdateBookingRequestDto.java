@@ -12,6 +12,6 @@ import java.util.Optional;
 public class UpdateBookingRequestDto {
 
     private String status;
-    private Optional<Long> driverId;
+    private Long driverId;
 
 }

@@ -1,4 +1,4 @@
-package com.example.Uber_BookingService.controllers;
+package com.example.Uber_BookingService.configurations;
 
 import com.example.Uber_BookingService.apis.LocationServiceApi;
 import com.example.Uber_BookingService.apis.UberSocketApi;
@@ -51,7 +51,7 @@ public class RetrofitConfig {
         return new Retrofit.Builder()
                 .baseUrl("http://placeholder/")   // replaced at call time by the interceptor
                 .addConverterFactory(GsonConverterFactory.create())
-                .client(buildLazyClient("LOCATIONSERVICE"))
+                .client(buildLazyClient("UBER-LOCATIONSERVICE"))
                 .build()
                 .create(LocationServiceApi.class);
     }
@@ -61,7 +61,7 @@ public class RetrofitConfig {
         return new Retrofit.Builder()
                 .baseUrl("http://placeholder/")   // replaced at call time by the interceptor
                 .addConverterFactory(GsonConverterFactory.create())
-                .client(buildLazyClient("UBERSOCKETSERVER"))
+                .client(buildLazyClient("UBER-SOCKETKAFKASERVICE"))
                 .build()
                 .create(UberSocketApi.class);
     }
