@@ -12,6 +12,7 @@ import com.example.Uber_EntityService.Models.BookingStatus;
 import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Passenger;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -169,6 +170,7 @@ public class BookingServiceImpl implements BookingService{
     }
 
     @Override
+    @Transactional
     public UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto bookingRequestDto, Long bookingId) {
         Optional<Booking> existingBooking = bookingRepository.findById(bookingId);
         if (existingBooking.isEmpty()) {

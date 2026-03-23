@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Gradle Imported" enabled="true">
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-configuration-processor/3.5.11/e0f368f778652f6631cd9d9f71d66e57fee25170/spring-boot-configuration-processor-3.5.11.jar" />
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.42/8365263844ebb62398e0dc33057ba10ba472d3b8/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="Uber-DriverService.main" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="Uber-API-Gateway" options="-parameters" />
+      <module name="Uber-API-Gateway.main" options="-parameters" />
+      <module name="Uber-API-Gateway.test" options="-parameters" />
+      <module name="Uber-AuthService" options="-parameters" />
+      <module name="Uber-AuthService.main" options="-parameters" />
+      <module name="Uber-AuthService.test" options="-parameters" />
+      <module name="Uber-BookingService" options="-parameters" />
+      <module name="Uber-BookingService.main" options="-parameters" />
+      <module name="Uber-BookingService.test" options="-parameters" />
+      <module name="Uber-DriverService" options="-parameters" />
+      <module name="Uber-DriverService.main" options="-parameters" />
+      <module name="Uber-DriverService.test" options="-parameters" />
+      <module name="Uber-LocationService" options="-parameters" />
+      <module name="Uber-LocationService.main" options="-parameters" />
+      <module name="Uber-LocationService.test" options="-parameters" />
+      <module name="Uber-NotificationService" options="-parameters" />
+      <module name="Uber-NotificationService.main" options="-parameters" />
+      <module name="Uber-NotificationService.test" options="-parameters" />
+      <module name="Uber-PaymentService" options="-parameters" />
+      <module name="Uber-PaymentService.main" options="-parameters" />
+      <module name="Uber-PaymentService.test" options="-parameters" />
+      <module name="Uber-ServiceDiscovery-Eureka" options="-parameters" />
+      <module name="Uber-ServiceDiscovery-Eureka.main" options="-parameters" />
+      <module name="Uber-ServiceDiscovery-Eureka.test" options="-parameters" />
+      <module name="Uber-SocketKafkaService" options="-parameters" />
+      <module name="Uber-SocketKafkaService.main" options="-parameters" />
+      <module name="Uber-SocketKafkaService.test" options="-parameters" />
+      <module name="com.example.Uber-EntityService" options="-parameters" />
+      <module name="com.example.Uber-EntityService.main" options="-parameters" />
+      <module name="com.example.Uber-EntityService.test" options="-parameters" />
+    </option>
+  </component>
+</project>

@@ -3,6 +3,15 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Uber App.iml" filepath="$PROJECT_DIR$/.idea/Uber App.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-API-Gateway.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-API-Gateway.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-AuthService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-AuthService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-BookingService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-BookingService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-DriverService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-DriverService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-LocationService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-LocationService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-NotificationService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-NotificationService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-PaymentService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-PaymentService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Uber-SocketKafkaService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Uber-SocketKafkaService.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.example.Uber-EntityService.main.iml" filepath="$PROJECT_DIR$/.idea/modules/com.example.Uber-EntityService.main.iml" />
     </modules>
   </component>
 </project>
