@@ -60,9 +60,11 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String token = authHeader.substring(7);
                 try {
                     Claims claims = validateToken(token);
+                    String userIdForHeader = resolveUserIdForGatewayHeader(claims);
                     ServerHttpRequest modifiedRequest = request.mutate()
-                            .header("X-User-Id", claims.getSubject())
-                            .header("X-User-Role", claims.get("role", String.class))
+                            .header("X-User-Id", userIdForHeader)
+                            .header("X-User-Email", claims.getSubject() != null ? claims.getSubject() : "")
+                            .header("X-User-Role", claims.get("role", String.class) != null ? claims.get("role", String.class) : "")
                             .build();
                     return chain.filter(exchange.mutate().request(modifiedRequest).build());
                     /* REMOVED: catch (Exception e) — hid bugs; use JwtException for parse/signature/expiry failures. */
@@ -75,10 +77,46 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         };
     }
 
+    /**
+     * Public routes on the Gateway (incoming path before downstream rewrite).
+     * REMOVED: only {@code /auth/login} and {@code /auth/register} — they never matched real Auth Service paths,
+     * so sign-up/sign-in through {@code /auth/api/v1/auth/...} incorrectly required a Bearer token.
+     */
     private boolean isSecured(ServerHttpRequest request) {
-        final List<String> openApiEndpoints = List.of("/auth/login", "/auth/register");
         String path = request.getURI().getPath();
-        return openApiEndpoints.stream().noneMatch(path::startsWith);
+        if (path == null) {
+            return true;
+        }
+        final List<String> publicPrefixes = List.of(
+                "/auth/api/v1/auth/signup",
+                "/auth/api/v1/auth/signin",
+                "/driver/api/v1/driver/auth/signup",
+                "/driver/api/v1/driver/auth/signin",
+                "/driver/api/v1/driver/auth/validate",
+                "/auth/login",
+                "/auth/register"
+        );
+        for (String prefix : publicPrefixes) {
+            if (path.startsWith(prefix)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Prefer numeric {@code passengerId} / {@code driverId} claims; fall back to JWT subject (historically email).
+     */
+    private static String resolveUserIdForGatewayHeader(Claims claims) {
+        Object pid = claims.get("passengerId");
+        if (pid instanceof Number) {
+            return String.valueOf(((Number) pid).longValue());
+        }
+        Object did = claims.get("driverId");
+        if (did instanceof Number) {
+            return String.valueOf(((Number) did).longValue());
+        }
+        return claims.getSubject() != null ? claims.getSubject() : "";
     }
 
     private Claims validateToken(String token) {

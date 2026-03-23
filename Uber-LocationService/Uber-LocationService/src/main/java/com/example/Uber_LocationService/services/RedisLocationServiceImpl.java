@@ -35,12 +35,13 @@ public class RedisLocationServiceImpl implements LocationService {
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
             throw new IllegalArgumentException("coordinates out of valid range");
         }
+        // Spring Data Redis Point is x = longitude, y = latitude (matches Redis GEO / WGS84).
         GeoOperations<String, String> geoOperations = stringRedisTemplate.opsForGeo();
         geoOperations.add(
                 DRIVER_GEO_OPS_KEY,
                 new RedisGeoCommands.GeoLocation<>(
                         driverId,
-                        new Point(latitude, longitude)
+                        new Point(longitude, latitude)
                 )
         );
         return true;
@@ -56,7 +57,7 @@ public class RedisLocationServiceImpl implements LocationService {
         }
         GeoOperations<String, String> geoOperations = stringRedisTemplate.opsForGeo();
         Distance radius = new Distance(SEARCH_RADIUS, Metrics.KILOMETERS);
-        Circle within = new Circle(new Point(latitude, longitude), radius);
+        Circle within = new Circle(new Point(longitude, latitude), radius);
 
         GeoResults<RedisGeoCommands.GeoLocation<String>> results = geoOperations.radius(DRIVER_GEO_OPS_KEY, within);
         List<DriverLocationDto> drivers = new ArrayList<>();
@@ -73,8 +74,8 @@ public class RedisLocationServiceImpl implements LocationService {
             Point point = positions.get(0);
             DriverLocationDto driverLocationDto = DriverLocationDto.builder()
                     .driverId(name)
-                    .latitude(point.getX())
-                    .longitude(point.getY())
+                    .latitude(point.getY())
+                    .longitude(point.getX())
                     .build();
             drivers.add(driverLocationDto);
         }

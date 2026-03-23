@@ -30,12 +30,21 @@ public class BillingService {
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal driverEarnings = totalFare.subtract(commission);
 
+        /*
+         * Fare component breakdown is not persisted on Payment today. Until booking/fare-quote fields are stored,
+         * derive a display-only split that sums to totalFare (replaces hardcoded 50/100/20/1.2 that ignored reality).
+         */
+        BigDecimal baseFare = totalFare.multiply(BigDecimal.valueOf(0.35)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal distanceFare = totalFare.multiply(BigDecimal.valueOf(0.45)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal timeFare = totalFare.subtract(baseFare).subtract(distanceFare).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal surgeMultiplier = BigDecimal.ONE;
+
         RideInvoiceDto dto = new RideInvoiceDto();
         dto.setBookingId(bookingId);
-        dto.setBaseFare(BigDecimal.valueOf(50.0));
-        dto.setDistanceFare(BigDecimal.valueOf(100.0));
-        dto.setTimeFare(BigDecimal.valueOf(20.0));
-        dto.setSurgeMultiplier(BigDecimal.valueOf(1.2));
+        dto.setBaseFare(baseFare);
+        dto.setDistanceFare(distanceFare);
+        dto.setTimeFare(timeFare);
+        dto.setSurgeMultiplier(surgeMultiplier);
         dto.setTotalFare(totalFare);
         dto.setCommission(commission);
         dto.setDriverEarnings(driverEarnings);

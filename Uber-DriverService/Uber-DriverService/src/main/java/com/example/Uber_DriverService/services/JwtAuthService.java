@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.Map;
 import java.util.function.Function;
 
 @Service
@@ -24,15 +25,19 @@ public class JwtAuthService {
 
 
     public String createToken(String email) {
+        return createToken(Map.of(), email);
+    }
+
+    public String createToken(Map<String, Object> extraClaims, String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration * 1000L);
         return Jwts.builder()
+                .claims(extraClaims)
                 .signWith(getSignedKey())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .subject(email)
                 .compact();
-
     }
 
 

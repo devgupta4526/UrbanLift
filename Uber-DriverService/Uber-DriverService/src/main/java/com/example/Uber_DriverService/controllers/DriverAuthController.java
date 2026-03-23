@@ -25,6 +25,9 @@ import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/driver/auth")
 public class DriverAuthController {
@@ -56,7 +59,10 @@ public class DriverAuthController {
                 .filter(d -> d.getDriverApprovalStatus() == DriverApprovalStatus.APPROVED)
                 .filter(d -> passwordEncoder.matches(dto.getPassword(), d.getPassword()))
                 .map(driver -> {
-                    String token = jwtService.createToken(driver.getEmail());
+                    Map<String, Object> claims = new HashMap<>();
+                    claims.put("driverId", driver.getId());
+                    claims.put("role", "DRIVER");
+                    String token = jwtService.createToken(claims, driver.getEmail());
                     ResponseCookie cookie = ResponseCookie.from("DRIVER_JWT", token)
                             .httpOnly(true)
                             .maxAge(7 * 24 * 3600)

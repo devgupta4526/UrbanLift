@@ -2,12 +2,38 @@
 
 > **Purpose:** Honest assessment of what is incomplete, what feels “off” or incorrect in flows, concrete fixes, and ideas for new APIs/features.  
 > **Audience:** Product owners, backend engineers, and architects.  
-> **Last updated:** March 22, 2026
+> **Last updated:** March 23, 2026
+
+---
+
+## 0. Critical roadmap items — resolution status (code verified)
+
+The items in **§2 Critical issues** and **§8 Quick-win checklist** were re-checked against the repo. Below is what is **done in code** vs **still intentional backlog** (product/infra).
+
+| # | Topic | Status |
+|---|--------|--------|
+| 2.1 | Gateway JWT whitelist vs real Auth/Driver paths | **Fixed** — `JwtAuthenticationFilter` allows `/auth/api/v1/auth/signup`, `/signin`, and `/driver/api/v1/driver/auth/signup`, `/signin`, `/validate` (plus legacy `/auth/login` `/register`). |
+| 2.2 | Passenger JWT subject hardcoded | **Fixed earlier** — `createToken(claims, authRequestDto.getEmail())` with real email; **now also** `passengerId` + `role` claims. |
+| 2.3 | Auth not on Eureka | **Fixed** — `Uber-AuthService` includes `spring-cloud-starter-netflix-eureka-client`; `application.name: Uber-AuthService`. |
+| 2.4 | Booking Retrofit Eureka names | **Fixed** — `UBER-LOCATIONSERVICE` / `UBER-SOCKETKAFKASERVICE` match Spring Eureka’s uppercased service IDs. |
+| 2.5 | Redis `Point` lat/lon order | **Fixed** — `new Point(longitude, latitude)` for add/radius; readback maps `latitude = point.getY()`, `longitude = point.getX()`. |
+| 2.6 | Kafka ride-response ignored | **Fixed** — `KafkaConsumerService` calls `bookingService.updateBooking` idempotently. |
+| 2.7 | Payment confirm mock no DB | **Fixed** — `confirmPayment` loads `Payment` by id, sets `COMPLETED`, saves. |
+| 2.8 | Billing invoice hardcoded lines | **Improved** — line items are a **display split** that sums to `totalFare` until components are persisted (see `BillingService` comment). |
+| 2.9 | Socket notification passenger id | **Fixed** — `fetchPassengerIdForBooking` + Booking `/passenger-id` API. |
+| 2.10 | Booking complete fare hardcoded | **Improved** — `estimateFareForCompletedRide` uses distance-based formula (not flat `100.0`). |
+| 2.11 | `X-User-Id` was email | **Fixed** — Gateway sets **`X-User-Id`** from `passengerId`/`driverId` claims; **`X-User-Email`** from JWT subject; JWTs issued on sign-in include ids. |
+| 2.12 | Inter-service HTTP without auth | **Open** — needs mTLS / internal API keys / OAuth2 client credentials (not a one-line fix). |
+| §3 | Real payment gateways, FCM, billing history, E2E tests, etc. | **Open** — roadmap / product backlog (see §3, §6). |
+| §8 | Empty `RideService` | **Removed** from codebase (no `RideService.java`). |
+
+**Note:** §4–§7 (design notes, observability, OpenAPI, features) remain **recommendations**, not bugs.
 
 ---
 
 ## Table of contents
 
+0. [Critical roadmap items — resolution status](#0-critical-roadmap-items--resolution-status-code-verified)  
 1. [Executive summary](#1-executive-summary)
 2. [Critical issues & incorrect flows](#2-critical-issues--incorrect-flows)
 3. [What is clearly “remaining” (incomplete)](#3-what-is-clearly-remaining-incomplete)
@@ -21,16 +47,14 @@
 
 ## 1. Executive summary
 
-UrbanLift already has a **credible microservices skeleton**: auth, driver, booking, location, payment, notifications, real-time socket/Kafka, API Gateway, and Eureka. Much of the **happy-path wiring exists**, but several areas are **placeholder, inconsistent, or broken in production-like setups** (especially Gateway + Eureka + JWT alignment, inter-service discovery names, and a few data/flow bugs).
+UrbanLift already has a **credible microservices skeleton**: auth, driver, booking, location, payment, notifications, real-time socket/Kafka, API Gateway, and Eureka. **Most critical gaps in §2 are now addressed in code** (see **§0 Resolution status**): Gateway public routes, JWT claims + headers, Eureka for Auth, Retrofit service IDs, Redis GEO point order, Kafka ride-response, payment confirm persistence, passenger id for notifications, and distance-based completed-ride fare. Remaining gaps are mainly **§2.12 service-to-service auth**, **real payment providers**, **observability/OpenAPI**, and **product features** in §3/§6.
 
-**Highest impact before new features:**
+**Next highest impact (after §0 fixes):**
 
-1. Align **JWT issuance**, **Gateway validation**, and **“public” routes** so clients can actually use `http://localhost:8080` predictably.  
-2. Fix **Eureka service IDs** used by **Booking → Location / Socket** Retrofit clients (likely wrong today).  
-3. Register **Auth Service** with Eureka **or** point Gateway to a **static URL** for auth.  
-4. Fix **Redis GEO coordinates** (`Point` order) if you rely on real-world distance.  
-5. Close the **ride-response loop** in Booking (Kafka consumer is a TODO).  
-6. Make **payment confirm** persist state and tie to **initiate** records.
+1. **Service-to-service authentication** (mTLS, internal API keys, or OAuth2 client credentials) — §2.12.  
+2. **Persist fare breakdown** on booking/payment so invoices are not derived splits — §2.8 follow-up.  
+3. **Real payment gateway** + webhooks when `payment.gateway.mock=false`.  
+4. **Integration / contract tests** (Testcontainers, WireMock) — §5.5.
 
 ---
 
@@ -391,16 +415,16 @@ Below are **new or expanded APIs** that would make the product closer to a real 
 
 Use this as a sprint board of **small, high-value** tasks:
 
-- [ ] `AuthController`: `createToken(authRequestDto.getEmail())` (or user id + claims).  
-- [ ] `JwtAuthenticationFilter`: whitelist correct signup/signin paths (after verifying full Gateway path).  
-- [ ] Register **Auth** with Eureka **or** switch Gateway `lb://` to direct URL for dev.  
-- [ ] `RetrofitConfig` (Booking): set Eureka names to **`Uber-LocationService`** / **`Uber-SocketKafkaService`** (verify in Eureka UI).  
-- [ ] `RedisLocationServiceImpl`: swap to `Point(longitude, latitude)` per Spring Data Redis docs.  
-- [ ] `KafkaConsumerService` (Booking): implement ride response handler **or** document HTTP-only flow.  
-- [ ] `PaymentGatewayService.confirmPayment`: update `Payment` entity.  
-- [ ] `DriverRequestController`: load passenger id from booking for notifications.  
-- [ ] `BookingServiceImpl`: replace hardcoded fare with calculated or stored value.  
-- [ ] Rename or document `X-User-Id` as email until numeric id is in JWT.
+- [x] `AuthController`: JWT includes **`passengerId`** + **`role`**, subject = email (`createToken(claims, email)`).  
+- [x] `JwtAuthenticationFilter`: whitelist **`/auth/api/v1/auth/signup|signin`** and **`/driver/api/v1/driver/auth/**`** public auth paths.  
+- [x] Register **Auth** with Eureka (`spring-cloud-starter-netflix-eureka-client` + `Uber-AuthService`).  
+- [x] `RetrofitConfig` (Booking): Eureka IDs **`UBER-LOCATIONSERVICE`** / **`UBER-SOCKETKAFKASERVICE`**.  
+- [x] `RedisLocationServiceImpl`: **`Point(longitude, latitude)`** + correct readback to DTO.  
+- [x] `KafkaConsumerService` (Booking): ride-response updates booking.  
+- [x] `PaymentGatewayService.confirmPayment`: persists **`COMPLETED`** on `Payment`.  
+- [x] `DriverRequestController`: passenger id from Booking API for notifications.  
+- [x] `BookingServiceImpl`: fare from **`estimateFareForCompletedRide`** (distance-based).  
+- [x] Gateway: **`X-User-Id`** from JWT claims (**`passengerId`/`driverId`**), **`X-User-Email`** from subject; Driver JWT includes **`driverId`**.  
 
 ---
 

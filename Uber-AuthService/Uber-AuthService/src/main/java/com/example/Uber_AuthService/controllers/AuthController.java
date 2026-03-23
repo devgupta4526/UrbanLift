@@ -1,6 +1,7 @@
 package com.example.Uber_AuthService.controllers;
 
 
+import com.example.Uber_AuthService.helpers.AuthPassengerDetails;
 import com.example.Uber_AuthService.dto.AuthRequestDto;
 import com.example.Uber_AuthService.dto.AuthResponseDto;
 import com.example.Uber_AuthService.dto.PassengerDto;
@@ -24,6 +25,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -60,7 +64,11 @@ public class AuthController {
                 UsernamePasswordAuthenticationToken(authRequestDto.getEmail(), authRequestDto.getPassword()));
 
         if(authentication.isAuthenticated()) {
-            String jwtToken = jwtService.createToken(authRequestDto.getEmail());
+            AuthPassengerDetails principal = (AuthPassengerDetails) authentication.getPrincipal();
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("passengerId", principal.getId());
+            claims.put("role", "PASSENGER");
+            String jwtToken = jwtService.createToken(claims, authRequestDto.getEmail());
             ResponseCookie cookie = ResponseCookie.from("JWT_TOKEN", jwtToken)
                     .httpOnly(true)
                     .maxAge(7*24*3600)
