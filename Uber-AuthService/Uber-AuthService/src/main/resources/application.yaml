@@ -27,6 +27,13 @@ logging:
 server:
   port: 7475
 
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    preferIpAddress: true
 jwt:
   expiry: 3600
   secret: undergroundjddkdjkdjododkdjdkldkdldjkdkdljdljdkldjldldjdldjldjldjdldljdld

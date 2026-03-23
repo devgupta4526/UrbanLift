@@ -52,7 +52,7 @@ public class AuthController {
                 UsernamePasswordAuthenticationToken(authRequestDto.getEmail(), authRequestDto.getPassword()));
 
         if(authentication.isAuthenticated()) {
-            String jwtToken = jwtService.createToken("Abc@gmail");
+            String jwtToken = jwtService.createToken(authRequestDto.getEmail());
             ResponseCookie cookie = ResponseCookie.from("JWT_TOKEN", jwtToken)
                     .httpOnly(true)
                     .maxAge(7*24*3600)

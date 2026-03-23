@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-API-Gateway/Uber-API-Gateway" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-AuthService/Uber-AuthService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-BookingService/Uber-BookingService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-DriverService/Uber-DriverService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-EntityService/Uber-EntityService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-LocationService/Uber-LocationService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-NotificationService/Uber-NotificationService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-ServiceDiscovery-Eureka/Uber-ServiceDiscovery-Eureka" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/Uber-SocketKafkaService/Uber-SocketKafkaService" />
+        <option name="gradleJvm" value="ms-17" />
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>

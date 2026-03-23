@@ -39,7 +39,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
+	implementation 'com.example:Uber-EntityService:0.0.3-SNAPSHOT'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
 
