@@ -46,12 +46,16 @@ public class RetrofitConfig {
                 .build();
     }
 
+    /**
+     * Must match {@code spring.application.name} as registered in Eureka (see Driver service RetrofitConfig).
+     * Wrong names = discovery failure = no HTTP calls = no logs on Location/Socket services.
+     */
     @Bean
     public LocationServiceApi locationServiceApi() {
         return new Retrofit.Builder()
                 .baseUrl("http://placeholder/")   // replaced at call time by the interceptor
                 .addConverterFactory(GsonConverterFactory.create())
-                .client(buildLazyClient("LOCATIONSERVICE"))
+                .client(buildLazyClient("UBER-LOCATIONSERVICE"))
                 .build()
                 .create(LocationServiceApi.class);
     }
@@ -61,7 +65,7 @@ public class RetrofitConfig {
         return new Retrofit.Builder()
                 .baseUrl("http://placeholder/")   // replaced at call time by the interceptor
                 .addConverterFactory(GsonConverterFactory.create())
-                .client(buildLazyClient("UBERSOCKETSERVER"))
+                .client(buildLazyClient("UBER-SOCKETKAFKASERVICE"))
                 .build()
                 .create(UberSocketApi.class);
     }

@@ -2,8 +2,9 @@ package com.example.Uber_SocketKafkaService.dtos;
 
 import lombok.*;
 
-import java.util.Optional;
-
+/**
+ * Plain {@code Long} so RestTemplate/Jackson JSON matches Booking API ({@code "driverId": 1}).
+ */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,7 +13,7 @@ import java.util.Optional;
 public class UpdateBookingRequestDto {
 
     private String status;
-    private Optional<Long> driverId;
+    private Long driverId;
 
 }
 
