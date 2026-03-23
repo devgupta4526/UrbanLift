@@ -55,7 +55,7 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
 
-	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
+	implementation 'com.example:Uber-EntityService:0.0.3-SNAPSHOT'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

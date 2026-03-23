@@ -39,7 +39,7 @@ dependencies {
 	// https://mvnrepository.com/artifact/io.jsonwebtoken/jjwt
 	implementation 'io.jsonwebtoken:jjwt:0.12.5'
 
-	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
+	implementation 'com.example:Uber-EntityService:0.0.3-SNAPSHOT'
 }
 
 tasks.named('test') {

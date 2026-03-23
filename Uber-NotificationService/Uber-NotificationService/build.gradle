@@ -50,7 +50,7 @@ dependencies {
 	implementation 'org.springframework.kafka:spring-kafka'
 	testImplementation 'org.springframework.kafka:spring-kafka-test'
 	runtimeOnly 'com.mysql:mysql-connector-j'
-	implementation 'com.example:Uber-EntityService:0.0.1-SNAPSHOT'
+	implementation 'com.example:Uber-EntityService:0.0.3-SNAPSHOT'
 }
 
 dependencyManagement {
