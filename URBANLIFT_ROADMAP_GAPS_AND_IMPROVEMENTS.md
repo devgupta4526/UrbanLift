@@ -430,6 +430,7 @@ Use this as a sprint board of **small, high-value** tasks:
 
 ## Related documents
 
+- [`urbanlift-web/README.md`](./urbanlift-web/README.md) — **Phase 1 frontend** (passenger + driver auth UI, Vite + React).  
 - [`URBANLIFT_API_TESTING_GUIDE.md`](./URBANLIFT_API_TESTING_GUIDE.md) — API reference, debugging, and Postman collection pointer.  
 - [`UrbanLift_Postman_Collection.json`](./UrbanLift_Postman_Collection.json) — Request collection.
 
