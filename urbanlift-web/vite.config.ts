@@ -28,6 +28,16 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/__driver/, ''),
             },
+            '/__booking': {
+              target: 'http://localhost:8001',
+              changeOrigin: true,
+              rewrite: (p) => p.replace(/^\/__booking/, ''),
+            },
+            '/__payment': {
+              target: 'http://localhost:8082',
+              changeOrigin: true,
+              rewrite: (p) => p.replace(/^\/__payment/, ''),
+            },
           }
         : undefined,
     },

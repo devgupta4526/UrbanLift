@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
 
 export function UiField({
@@ -25,14 +26,13 @@ export function UiField({
   );
 }
 
-export function UiInput({
-  id,
-  error,
-  className = '',
-  ...props
-}: InputHTMLAttributes<HTMLInputElement> & { id: string; error?: string }) {
+export const UiInput = forwardRef<
+  HTMLInputElement,
+  InputHTMLAttributes<HTMLInputElement> & { id: string; error?: string }
+>(function UiInput({ id, error, className = '', ...props }, ref) {
   return (
     <input
+      ref={ref}
       id={id}
       className={`w-full rounded-xl border bg-night-900/80 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-signal/50 ${
         error ? 'border-red-500/40' : 'border-white/10'
@@ -40,17 +40,15 @@ export function UiInput({
       {...props}
     />
   );
-}
+});
 
-export function UiSelect({
-  id,
-  error,
-  className = '',
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { id: string; error?: string }) {
+export const UiSelect = forwardRef<
+  HTMLSelectElement,
+  SelectHTMLAttributes<HTMLSelectElement> & { id: string; error?: string }
+>(function UiSelect({ id, error, className = '', children, ...props }, ref) {
   return (
     <select
+      ref={ref}
       id={id}
       className={`w-full rounded-xl border bg-night-900/80 px-4 py-3 text-sm text-zinc-100 transition focus:border-signal/50 ${
         error ? 'border-red-500/40' : 'border-white/10'
@@ -60,4 +58,4 @@ export function UiSelect({
       {children}
     </select>
   );
-}
+});

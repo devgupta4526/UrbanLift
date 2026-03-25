@@ -1,4 +1,4 @@
-import { AUTH_API_BASE, DRIVER_API_BASE } from './config';
+import { AUTH_API_BASE, BOOKING_API_BASE, DRIVER_API_BASE, PAYMENT_API_BASE } from './config';
 
 export class ApiError extends Error {
   constructor(
@@ -37,7 +37,7 @@ export async function apiFetch(
     ...init,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -49,7 +49,13 @@ export async function apiJson<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const res = await apiFetch(base, path, init);
+  const res = await apiFetch(base, path, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
   if (!res.ok) {
     const msg = await parseErrorBody(res);
     throw new ApiError(msg, res.status);
@@ -61,6 +67,49 @@ export async function apiJson<T>(
     return text as unknown as T;
   }
   return res.json() as Promise<T>;
+}
+
+// —— Types (defensive; backend may serialize Optionals oddly)
+
+export interface ExactLocationDto {
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface BookingDetailDto {
+  id: number;
+  bookingStatus: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalDistance?: number;
+  startLocation?: ExactLocationDto;
+  endLocation?: ExactLocationDto;
+}
+
+export interface CreateBookingResponseDto {
+  bookingId: number;
+  bookingStatus: string;
+}
+
+export interface FareEstimateDto {
+  estimatedFare?: number;
+  baseFare?: number;
+  distanceFare?: number;
+  timeFare?: number;
+  surgeMultiplier?: number;
+  totalFare?: number;
+}
+
+export interface DriverDto {
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  driverApprovalStatus?: string;
+  isAvailable?: boolean;
+  car?: { plateNumber?: string; carType?: string };
 }
 
 export const authApi = {
@@ -99,5 +148,61 @@ export const driverApi = {
   validate: () =>
     apiJson<{ success: boolean }>(DRIVER_API_BASE, '/api/v1/driver/auth/validate', {
       method: 'GET',
+    }),
+  profile: () => apiJson<DriverDto>(DRIVER_API_BASE, '/api/v1/driver/profile', { method: 'GET' }),
+  updateLocation: (body: { latitude: number; longitude: number }) =>
+    apiJson<void>(DRIVER_API_BASE, '/api/v1/driver/location', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  setAvailability: (body: { available: boolean }, lat?: number, lng?: number) => {
+    const q =
+      lat != null && lng != null ? `?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}` : '';
+    return apiJson<void>(DRIVER_API_BASE, `/api/v1/driver/availability${q}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
+};
+
+export const bookingApi = {
+  base: BOOKING_API_BASE,
+  create: (body: {
+    passengerId: number;
+    startLocation: { latitude: number; longitude: number };
+    endLocation: { latitude: number; longitude: number };
+  }) =>
+    apiJson<CreateBookingResponseDto>(BOOKING_API_BASE, '/api/v1/booking', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listByPassenger: (passengerId: number) =>
+    apiJson<BookingDetailDto[]>(BOOKING_API_BASE, `/api/v1/booking/passenger/${passengerId}`, {
+      method: 'GET',
+    }),
+  listByDriver: (driverId: number) =>
+    apiJson<BookingDetailDto[]>(BOOKING_API_BASE, `/api/v1/booking/driver/${driverId}`, {
+      method: 'GET',
+    }),
+  get: (bookingId: number) =>
+    apiJson<BookingDetailDto>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}`, { method: 'GET' }),
+  cancel: (bookingId: number) =>
+    apiJson<unknown>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}/cancel`, {
+      method: 'POST',
+    }),
+};
+
+export const paymentApi = {
+  base: PAYMENT_API_BASE,
+  estimateFare: (body: {
+    startLat: number;
+    startLng: number;
+    endLat: number;
+    endLng: number;
+    carType: string;
+  }) =>
+    apiJson<FareEstimateDto>(PAYMENT_API_BASE, '/api/v1/fare/estimate', {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 };
