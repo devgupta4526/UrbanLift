@@ -16,8 +16,8 @@ async function parseErrorBody(res: Response): Promise<string> {
   if (ct.includes('application/json')) {
     try {
       const j = (await res.json()) as { message?: string; error?: string };
-      if (typeof j.message === 'string') return j.message;
-      if (typeof j.error === 'string') return j.error;
+      if (typeof j.message === 'string' && j.message.trim()) return j.message;
+      if (typeof j.error === 'string' && j.error.trim()) return j.error;
       return JSON.stringify(j);
     } catch {
       return res.statusText;
@@ -137,12 +137,14 @@ export const authApi = {
       { method: 'POST', body: JSON.stringify(body) }
     ),
   signin: (body: { email: string; password: string }) =>
-    apiJson<{ success: boolean }>(AUTH_API_BASE, '/api/v1/auth/signin/passenger', {
+    apiJson<{ success: boolean; passengerId?: number; email?: string }>(AUTH_API_BASE, '/api/v1/auth/signin/passenger', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   validate: () =>
-    apiJson<{ success: boolean }>(AUTH_API_BASE, '/api/v1/auth/validate', { method: 'GET' }),
+    apiJson<{ success: boolean; passengerId?: number; email?: string }>(AUTH_API_BASE, '/api/v1/auth/validate', {
+      method: 'GET',
+    }),
 };
 
 export const driverApi = {

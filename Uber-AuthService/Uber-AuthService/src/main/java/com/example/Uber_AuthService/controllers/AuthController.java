@@ -76,7 +76,13 @@ public class AuthController {
                     .path("/")
                     .build();
             response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-            return new ResponseEntity<>(AuthResponseDto.builder().success(true).build(),HttpStatus.OK);
+            return new ResponseEntity<>(
+                    AuthResponseDto.builder()
+                            .success(true)
+                            .passengerId(principal.getId())
+                            .email(principal.getUsername())
+                            .build(),
+                    HttpStatus.OK);
 
         }else {
             throw new UsernameNotFoundException("User not found");
@@ -101,9 +107,20 @@ public class AuthController {
         try{
             String email = jwtService.extractSubject(jwtToken);
             if(jwtService.isTokenValid(jwtToken,email)){
+                Long passengerId = null;
+                try {
+                    Object raw = jwtService.extractPayload(jwtToken, "passengerId");
+                    if (raw instanceof Number) {
+                        passengerId = ((Number) raw).longValue();
+                    }
+                } catch (Exception ignored) {
+                    /* optional claim */
+                }
                 return new ResponseEntity<>(
                         AuthResponseDto.builder()
                                 .success(true)
+                                .passengerId(passengerId)
+                                .email(email)
                                 .build(),
                         HttpStatus.OK
                 );

@@ -7,6 +7,7 @@ import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
 import {
+  authApi,
   bookingApi,
   paymentApi,
   ApiError,
@@ -170,6 +171,25 @@ export function PassengerRidePage() {
       bookForm.setValue('passengerId', storedId);
     }
   }, [storedId, idForm, bookForm]);
+
+  /** If a rider JWT cookie exists, sync passenger id into forms and localStorage (matches sign-in response). */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const v = await authApi.validate();
+        if (cancelled || v.passengerId == null) return;
+        setStoredPassengerIdentity(v.passengerId, v.email);
+        idForm.setValue('passengerId', v.passengerId);
+        bookForm.setValue('passengerId', v.passengerId);
+      } catch {
+        /* guest */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [idForm, bookForm]);
 
   useEffect(() => {
     const from = pickupCoords();

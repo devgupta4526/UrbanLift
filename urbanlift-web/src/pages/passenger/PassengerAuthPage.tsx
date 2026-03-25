@@ -69,7 +69,10 @@ export function PassengerAuthPage() {
   async function onSignin(values: SigninValues) {
     setSigninBanner(null);
     try {
-      await authApi.signin({ email: values.email.trim(), password: values.password });
+      const res = await authApi.signin({ email: values.email.trim(), password: values.password });
+      if (res.passengerId != null) {
+        setStoredPassengerIdentity(res.passengerId, res.email ?? values.email.trim());
+      }
       setSigninBanner({
         type: 'success',
         text: 'Signed in. Open the rider app to book a trip.',
@@ -87,6 +90,9 @@ export function PassengerAuthPage() {
     setSessionMsg(null);
     try {
       const res = await authApi.validate();
+      if (res.passengerId != null) {
+        setStoredPassengerIdentity(res.passengerId, res.email);
+      }
       setSessionMsg({
         type: 'success',
         text: res.success ? 'You are signed in.' : 'Something went wrong.',
