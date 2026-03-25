@@ -2,31 +2,36 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PhaseBadge } from '@/components/PhaseBadge';
 import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
-import { FormSection } from '@/components/FormSection';
 import { bookingApi, driverApi, ApiError, type BookingDetailDto, type DriverDto } from '@/lib/api';
+import { RIDE_AREA_LABEL } from '@/lib/places';
+import { driverTripStageLabel } from '@/lib/ride-copy';
+import { driverStatusAction, formatBookingPerson } from '@/lib/booking-flow';
 import {
   driverLocationSchema,
   driverAvailabilityFormSchema,
+  driverAcceptBookingSchema,
   type DriverLocationValues,
 } from '@/lib/validation/schemas';
 import type { z } from 'zod';
 
 type AvailabilityFormValues = z.infer<typeof driverAvailabilityFormSchema>;
+type AcceptBookingValues = z.infer<typeof driverAcceptBookingSchema>;
 
 export function DriverConsolePage() {
   const [profile, setProfile] = useState<DriverDto | null>(null);
   const [bookings, setBookings] = useState<BookingDetailDto[] | null>(null);
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingTrips, setLoadingTrips] = useState(false);
+  const [busyBookingId, setBusyBookingId] = useState<number | null>(null);
 
   const locForm = useForm<DriverLocationValues>({
     resolver: zodResolver(driverLocationSchema),
     mode: 'onBlur',
-    defaultValues: { latitude: 19.076, longitude: 72.8777 },
+    defaultValues: { latitude: 28.6315, longitude: 77.2167 },
   });
 
   const availForm = useForm<AvailabilityFormValues>({
@@ -35,13 +40,19 @@ export function DriverConsolePage() {
     defaultValues: { available: true, lat: '', lng: '' },
   });
 
+  const acceptForm = useForm<AcceptBookingValues>({
+    resolver: zodResolver(driverAcceptBookingSchema),
+    mode: 'onBlur',
+    defaultValues: { bookingId: undefined },
+  });
+
   async function loadProfile() {
     setLoadingProfile(true);
     setBanner(null);
     try {
       const p = await driverApi.profile();
       setProfile(p);
-      setBanner(null);
+      availForm.setValue('available', Boolean(p.isAvailable));
     } catch (e) {
       setProfile(null);
       setBanner({
@@ -49,7 +60,7 @@ export function DriverConsolePage() {
         text:
           e instanceof ApiError
             ? e.message
-            : 'Could not load profile — sign in on the driver auth page first.',
+            : 'Sign in with your driver account to go online.',
       });
     } finally {
       setLoadingProfile(false);
@@ -57,6 +68,7 @@ export function DriverConsolePage() {
   }
 
   async function loadTrips(driverId: number) {
+    setLoadingTrips(true);
     try {
       const list = await bookingApi.listByDriver(driverId);
       setBookings(list);
@@ -64,8 +76,10 @@ export function DriverConsolePage() {
       setBookings([]);
       setBanner({
         type: 'error',
-        text: e instanceof ApiError ? e.message : 'Could not load trips',
+        text: e instanceof ApiError ? e.message : 'Couldn’t load your trips.',
       });
+    } finally {
+      setLoadingTrips(false);
     }
   }
 
@@ -81,9 +95,9 @@ export function DriverConsolePage() {
     setBanner(null);
     try {
       await driverApi.updateLocation({ latitude: values.latitude, longitude: values.longitude });
-      setBanner({ type: 'success', text: 'Location synced to Location Service (Redis GEO).' });
+      setBanner({ type: 'success', text: 'Location updated. Riders can find you nearby.' });
     } catch (e) {
-      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Location update failed' });
+      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Location update failed.' });
     }
   }
 
@@ -99,136 +113,207 @@ export function DriverConsolePage() {
       );
       setBanner({
         type: 'success',
-        text: data.available ? 'You are marked available.' : 'You are marked offline.',
+        text: data.available ? 'You are online and can receive trips.' : 'You are offline.',
       });
       await loadProfile();
     } catch (e) {
-      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Availability update failed' });
+      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Could not update status.' });
+    }
+  }
+
+  async function submitAcceptRide(values: AcceptBookingValues) {
+    setBanner(null);
+    if (profile?.id == null) {
+      setBanner({ type: 'error', text: 'Load your profile first.' });
+      return;
+    }
+    try {
+      await bookingApi.update(values.bookingId, {
+        status: 'SCHEDULED',
+        driverId: profile.id,
+      });
+      setBanner({ type: 'success', text: 'Trip added to your queue.' });
+      acceptForm.reset({ bookingId: undefined });
+      await loadTrips(profile.id);
+    } catch (e) {
+      setBanner({
+        type: 'error',
+        text: e instanceof ApiError ? e.message : 'Could not add this trip. Check the code with your rider.',
+      });
+    }
+  }
+
+  async function advanceTrip(bookingId: number, nextStatus: string) {
+    if (profile?.id == null) return;
+    setBusyBookingId(bookingId);
+    setBanner(null);
+    try {
+      await bookingApi.setStatus(bookingId, nextStatus);
+      await loadTrips(profile.id);
+    } catch (e) {
+      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Could not update trip.' });
+    } finally {
+      setBusyBookingId(null);
     }
   }
 
   const locErr = locForm.formState.errors;
   const availErr = availForm.formState.errors;
+  const acceptErr = acceptForm.formState.errors;
+  const isOnline = availForm.watch('available');
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link to="/" className="text-sm text-zinc-500 hover:text-zinc-200">
-          ← Home
-        </Link>
-        <Link to="/driver" className="text-sm font-medium text-aqua hover:underline">
-          Driver auth
-        </Link>
-      </div>
-      <PhaseBadge phase={2} />
-      <h1 className="mt-4 font-display text-3xl font-bold text-zinc-50">Driver console</h1>
-      <p className="mt-2 text-sm text-zinc-500">
-        Profile & booking reads use your <code className="text-zinc-400">DRIVER_JWT</code> cookie.
-      </p>
-
-      {banner && (
-        <div className="mt-6">
-          <Alert variant={banner.type === 'success' ? 'success' : banner.type === 'info' ? 'info' : 'error'}>
-            {banner.text}
-          </Alert>
+    <div className="min-h-screen bg-black pb-32 text-zinc-100">
+      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-emerald-900/40 via-black to-black">
+        <div className="absolute inset-0 opacity-20" style={{ backgroundSize: '20px 20px', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)' }} />
+        <div className="relative flex h-full flex-col justify-end px-4 pb-4">
+          <Link to="/" className="absolute left-4 top-4 text-sm text-zinc-400 hover:text-white">
+            ← Exit
+          </Link>
+          <Link to="/driver" className="absolute right-4 top-4 text-sm text-zinc-400 hover:text-white">
+            Account
+          </Link>
+          <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">UrbanLift Driver</p>
+          <p className="font-display text-2xl font-bold text-white">
+            {loadingProfile ? '…' : profile ? `Hi, ${profile.firstName ?? 'partner'}` : 'Welcome'}
+          </p>
+          <p className="text-sm text-zinc-500">{RIDE_AREA_LABEL}</p>
         </div>
-      )}
+      </div>
 
-      <div className="mt-8 space-y-8">
-        <section className="glass-panel shadow-card p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-zinc-100">Profile</h2>
-              {loadingProfile && <p className="mt-2 text-sm text-zinc-500">Loading…</p>}
-              {profile && (
-                <ul className="mt-3 space-y-1 text-sm text-zinc-400">
-                  <li>
-                    <span className="text-zinc-500">ID</span> {profile.id}
-                  </li>
-                  <li>
-                    <span className="text-zinc-500">Name</span>{' '}
-                    {profile.firstName} {profile.lastName}
-                  </li>
-                  <li>
-                    <span className="text-zinc-500">Email</span> {profile.email}
-                  </li>
-                  <li>
-                    <span className="text-zinc-500">Status</span> {profile.driverApprovalStatus}
-                  </li>
-                  <li>
-                    <span className="text-zinc-500">Available</span>{' '}
-                    {profile.isAvailable ? 'Yes' : 'No'}
-                  </li>
-                </ul>
-              )}
-            </div>
-            <UiButton type="button" variant="ghost" onClick={() => void loadProfile()} loading={loadingProfile}>
-              Reload profile
-            </UiButton>
+      <div className="mx-auto max-w-lg px-4">
+        {banner && (
+          <div className="mt-4">
+            <Alert variant={banner.type === 'success' ? 'success' : banner.type === 'info' ? 'info' : 'error'}>
+              {banner.text}
+            </Alert>
           </div>
+        )}
+
+        <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/70 p-5 backdrop-blur-xl">
+          <form onSubmit={availForm.handleSubmit(submitAvailability)} className="space-y-4" noValidate>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-white">{isOnline ? 'You are online' : 'You are offline'}</p>
+                <p className="text-xs text-zinc-500">
+                  {isOnline ? 'Riders can match with you.' : 'Go online to receive trips.'}
+                </p>
+              </div>
+              <label className="relative inline-block h-11 w-[4.5rem] shrink-0 cursor-pointer">
+                <input type="checkbox" className="peer sr-only" {...availForm.register('available')} />
+                <span className="absolute inset-0 rounded-full bg-zinc-700 transition peer-checked:bg-emerald-500" />
+                <span className="absolute left-1 top-1 h-9 w-9 rounded-full bg-white shadow transition peer-checked:translate-x-[2.15rem]" />
+              </label>
+            </div>
+            <p className="text-[11px] text-zinc-600">
+              Optional: set both coordinates when you go online to pin your position on the map.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <UiField label="Lat" id="alat" error={availErr.lat?.message}>
+                <UiInput id="alat" step="any" className="!py-2 !text-sm" {...availForm.register('lat')} />
+              </UiField>
+              <UiField label="Lng" id="alng" error={availErr.lng?.message}>
+                <UiInput id="alng" step="any" className="!py-2 !text-sm" {...availForm.register('lng')} />
+              </UiField>
+            </div>
+            <UiButton type="submit" loading={availForm.formState.isSubmitting} className="w-full">
+              Apply
+            </UiButton>
+          </form>
         </section>
 
-        <FormSection
-          title="GPS ping"
-          description="Pushes coordinates to the Location Service so you can receive ride offers near this point."
-        >
-          <form onSubmit={locForm.handleSubmit(submitLocation)} className="max-w-lg space-y-4" noValidate>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <UiField label="Latitude" id="dlat" error={locErr.latitude?.message}>
-                <UiInput id="dlat" step="any" {...locForm.register('latitude')} />
-              </UiField>
-              <UiField label="Longitude" id="dlng" error={locErr.longitude?.message}>
-                <UiInput id="dlng" step="any" {...locForm.register('longitude')} />
-              </UiField>
-            </div>
-            <UiButton type="submit" loading={locForm.formState.isSubmitting}>
-              Update location
+        <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/50 p-5">
+          <p className="text-sm font-semibold text-white">Enter trip code</p>
+          <p className="mt-1 text-xs text-zinc-500">Your rider shares this after booking — same as their trip reference.</p>
+          <form onSubmit={acceptForm.handleSubmit(submitAcceptRide)} className="mt-4 flex gap-2" noValidate>
+            <UiInput
+              id="tripcode"
+              type="number"
+              step={1}
+              min={1}
+              placeholder="Code"
+              className="!py-3"
+              {...acceptForm.register('bookingId')}
+            />
+            <UiButton type="submit" className="shrink-0 !px-6">
+              Add
             </UiButton>
           </form>
-        </FormSection>
+          {acceptErr.bookingId?.message ? (
+            <p className="mt-2 text-xs text-red-400">{acceptErr.bookingId.message}</p>
+          ) : null}
+        </section>
 
-        <FormSection
-          title="Availability"
-          description="Optional lat/lng registers you on the map when you go online."
-        >
-          <form onSubmit={availForm.handleSubmit(submitAvailability)} className="max-w-lg space-y-4" noValidate>
-            <label className="flex cursor-pointer items-center gap-3 text-sm text-zinc-300">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-white/20 bg-night-900"
-                {...availForm.register('available')}
-              />
-              I am available for rides
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <UiField label="Latitude (optional)" id="alat" error={availErr.lat?.message}>
-                <UiInput id="alat" step="any" {...availForm.register('lat')} />
-              </UiField>
-              <UiField label="Longitude (optional)" id="alng" error={availErr.lng?.message}>
-                <UiInput id="alng" step="any" {...availForm.register('lng')} />
-              </UiField>
+        <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/50 p-5">
+          <p className="text-sm font-semibold text-white">Your location</p>
+          <form onSubmit={locForm.handleSubmit(submitLocation)} className="mt-4 grid grid-cols-2 gap-3" noValidate>
+            <UiField label="Latitude" id="dlat" error={locErr.latitude?.message}>
+              <UiInput id="dlat" step="any" {...locForm.register('latitude')} />
+            </UiField>
+            <UiField label="Longitude" id="dlng" error={locErr.longitude?.message}>
+              <UiInput id="dlng" step="any" {...locForm.register('longitude')} />
+            </UiField>
+            <div className="col-span-2">
+              <UiButton type="submit" variant="ghost" className="w-full border border-white/10">
+                Update on map
+              </UiButton>
             </div>
-            <UiButton type="submit" loading={availForm.formState.isSubmitting}>
-              Save availability
-            </UiButton>
           </form>
-        </FormSection>
+        </section>
 
-        <FormSection title="Assigned bookings" description="Bookings where you are the assigned driver.">
-          {!bookings?.length && (
-            <p className="text-sm text-zinc-500">No bookings yet — accept a ride from the socket flow or wait for assignments.</p>
-          )}
-          <ul className="space-y-3">
-            {bookings?.map((b) => (
-              <li
-                key={b.id}
-                className="rounded-xl border border-white/10 bg-night-900/40 px-4 py-3 text-sm text-zinc-300"
-              >
-                <span className="font-mono text-aqua">#{b.id}</span> {b.bookingStatus}
-              </li>
-            ))}
+        <section className="mt-8 pb-10">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Your trips</h2>
+            <button
+              type="button"
+              onClick={() => profile?.id != null && void loadTrips(profile.id)}
+              className="text-sm text-emerald-400 hover:underline disabled:opacity-40"
+              disabled={profile?.id == null || loadingTrips}
+            >
+              Refresh
+            </button>
+          </div>
+          {!bookings?.length && !loadingTrips ? (
+            <p className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-sm text-zinc-500">
+              No active trips. Go online or add a trip code.
+            </p>
+          ) : null}
+          <ul className="space-y-4">
+            {bookings?.map((b) => {
+              const action = driverStatusAction(b.bookingStatus);
+              const pax = formatBookingPerson(b.passenger);
+              return (
+                <li key={b.id} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-900/80">
+                  <div className="border-b border-white/[0.06] bg-black/30 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-emerald-500/90">
+                      {driverTripStageLabel(b.bookingStatus)}
+                    </p>
+                    <p className="text-lg font-semibold text-white">{pax || 'Rider'}</p>
+                    <p className="text-[11px] text-zinc-600">Trip #{b.id}</p>
+                  </div>
+                  {b.startLocation && (
+                    <p className="px-4 py-3 text-xs leading-relaxed text-zinc-400">
+                      Pickup near {b.startLocation.latitude?.toFixed(3)} · Drop {b.endLocation?.latitude?.toFixed(3)}
+                    </p>
+                  )}
+                  {action ? (
+                    <div className="p-4 pt-0">
+                      <UiButton
+                        type="button"
+                        className="w-full !py-4 text-base"
+                        loading={busyBookingId === b.id}
+                        disabled={busyBookingId != null && busyBookingId !== b.id}
+                        onClick={() => void advanceTrip(b.id, action.nextStatus)}
+                      >
+                        {action.label}
+                      </UiButton>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
-        </FormSection>
+        </section>
       </div>
     </div>
   );

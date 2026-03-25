@@ -76,6 +76,14 @@ export interface ExactLocationDto {
   longitude?: number;
 }
 
+/** Nested entity shapes from Booking Service JSON (may include extra fields). */
+export interface BookingPersonDto {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
 export interface BookingDetailDto {
   id: number;
   bookingStatus: string;
@@ -83,6 +91,8 @@ export interface BookingDetailDto {
   startTime?: string;
   endTime?: string;
   totalDistance?: number;
+  passenger?: BookingPersonDto | null;
+  driver?: BookingPersonDto | null;
   startLocation?: ExactLocationDto;
   endLocation?: ExactLocationDto;
 }
@@ -99,6 +109,12 @@ export interface FareEstimateDto {
   timeFare?: number;
   surgeMultiplier?: number;
   totalFare?: number;
+}
+
+export interface UpdateBookingResponseDto {
+  bookingId?: number;
+  status?: string;
+  driver?: BookingPersonDto | null;
 }
 
 export interface DriverDto {
@@ -190,6 +206,26 @@ export const bookingApi = {
     apiJson<unknown>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}/cancel`, {
       method: 'POST',
     }),
+  /** Assign driver + status (e.g. accept ride: SCHEDULED + driverId). */
+  update: (bookingId: number, body: { status?: string; driverId?: number }) =>
+    apiJson<UpdateBookingResponseDto>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  setStatus: (bookingId: number, status: string) => {
+    const q = new URLSearchParams({ status });
+    return apiJson<UpdateBookingResponseDto>(
+      BOOKING_API_BASE,
+      `/api/v1/booking/${bookingId}/status?${q.toString()}`,
+      { method: 'PUT' }
+    );
+  },
+  passengerIdForBooking: (bookingId: number) =>
+    apiJson<{ passengerId: number }>(
+      BOOKING_API_BASE,
+      `/api/v1/booking/${bookingId}/passenger-id`,
+      { method: 'GET' }
+    ),
 };
 
 export const paymentApi = {
@@ -205,4 +241,29 @@ export const paymentApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  initiate: (body: { bookingId: number; amount: number }) =>
+    apiJson<{
+      paymentId?: number;
+      orderId?: string;
+      amount?: number;
+      currency?: string;
+      status?: string;
+    }>(PAYMENT_API_BASE, '/api/v1/payment/initiate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  confirm: (body: {
+    paymentId: number;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+  }) =>
+    apiJson<{ success?: boolean; paymentId?: string; status?: string; amount?: number }>(
+      PAYMENT_API_BASE,
+      '/api/v1/payment/confirm',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    ),
 };

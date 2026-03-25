@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { NavBack } from '@/components/NavBack';
-import { PhaseBadge } from '@/components/PhaseBadge';
 import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput, UiSelect } from '@/components/UiField';
@@ -173,16 +172,13 @@ export function DriverAuthPage() {
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:py-14">
       <NavBack />
-      <div className="mt-8 flex flex-wrap items-center gap-4">
-        <PhaseBadge phase={1} />
-        <Link to="/driver/app" className="text-sm font-medium text-aqua hover:underline">
-          Driver console →
+      <div className="mt-8">
+        <Link to="/driver/app" className="text-sm font-medium text-emerald-400 hover:underline">
+          Open driver home
         </Link>
       </div>
-      <h1 className="mt-4 font-display text-3xl font-bold text-zinc-50">Driver access</h1>
-      <p className="mt-2 text-sm text-zinc-500">
-        API <code className="text-zinc-400">{driverApi.base}</code>
-      </p>
+      <h1 className="mt-6 font-display text-3xl font-bold text-white">Driver account</h1>
+      <p className="mt-2 text-sm text-zinc-500">Register your vehicle or sign in to start driving with UrbanLift.</p>
 
       <div className="mt-8 flex gap-1 rounded-xl bg-night-900/80 p-1 ring-1 ring-white/10">
         {(
@@ -334,11 +330,9 @@ export function DriverAuthPage() {
             {sessionMsg && (
               <Alert variant={sessionMsg.type === 'success' ? 'success' : 'error'}>{sessionMsg.text}</Alert>
             )}
-            <p className="text-sm text-zinc-400">
-              Validates <code className="text-signal">DRIVER_JWT</code> via cookie on this origin.
-            </p>
+            <p className="text-sm text-zinc-400">Check whether you are still signed in as a driver.</p>
             <UiButton type="button" variant="ghost" className="w-full" onClick={() => void onValidate()} loading={sessionLoading}>
-              Validate driver session
+              Verify session
             </UiButton>
           </div>
         )}

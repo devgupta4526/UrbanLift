@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { NavBack } from '@/components/NavBack';
-import { PhaseBadge } from '@/components/PhaseBadge';
 import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
@@ -73,7 +72,7 @@ export function PassengerAuthPage() {
       await authApi.signin({ email: values.email.trim(), password: values.password });
       setSigninBanner({
         type: 'success',
-        text: 'Signed in. JWT cookie set. Open the passenger app to book rides.',
+        text: 'Signed in. Open the rider app to book a trip.',
       });
     } catch (err) {
       setSigninBanner({
@@ -90,7 +89,7 @@ export function PassengerAuthPage() {
       const res = await authApi.validate();
       setSessionMsg({
         type: 'success',
-        text: res.success ? 'Session valid — cookie accepted by Auth Service.' : 'Unexpected response',
+        text: res.success ? 'You are signed in.' : 'Something went wrong.',
       });
     } catch (err) {
       setSessionMsg({
@@ -111,19 +110,13 @@ export function PassengerAuthPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-10 sm:py-14">
       <NavBack />
-      <div className="mt-8 flex flex-wrap items-center gap-4">
-        <PhaseBadge phase={1} />
-        <Link
-          to="/passenger/app"
-          className="text-sm font-medium text-signal hover:underline"
-        >
-          Passenger app →
+      <div className="mt-8">
+        <Link to="/passenger/app" className="text-sm font-medium text-emerald-400 hover:underline">
+          Continue to the rider app
         </Link>
       </div>
-      <h1 className="mt-4 font-display text-3xl font-bold text-zinc-50">Passenger access</h1>
-      <p className="mt-2 text-sm text-zinc-500">
-        API <code className="text-zinc-400">{authApi.base}</code>
-      </p>
+      <h1 className="mt-6 font-display text-3xl font-bold text-white">Rider account</h1>
+      <p className="mt-2 text-sm text-zinc-500">Create an account or sign in to book rides with UrbanLift.</p>
 
       <div className="mt-8 flex gap-1 rounded-xl bg-night-900/80 p-1 ring-1 ring-white/10">
         {tabs.map((t) => (
@@ -200,12 +193,9 @@ export function PassengerAuthPage() {
             {sessionMsg && (
               <Alert variant={sessionMsg.type === 'success' ? 'success' : 'error'}>{sessionMsg.text}</Alert>
             )}
-            <p className="text-sm text-zinc-400">
-              GET <code className="text-aqua">/api/v1/auth/validate</code> with cookies (same origin via Vite
-              proxy).
-            </p>
+            <p className="text-sm text-zinc-400">Check whether you are still signed in on this device.</p>
             <UiButton type="button" variant="ghost" className="w-full" onClick={onValidateSession} loading={sessionLoading}>
-              Validate JWT cookie
+              Verify session
             </UiButton>
           </div>
         )}

@@ -7,7 +7,7 @@ import { DriverConsolePage } from '@/pages/driver/DriverConsolePage';
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-hero-glow bg-grid-fade bg-night-950">
+    <div className="min-h-screen bg-black">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/passenger" element={<PassengerAuthPage />} />

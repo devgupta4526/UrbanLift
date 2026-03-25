@@ -153,3 +153,30 @@ export type PassengerIdFormValues = z.infer<typeof passengerIdFormSchema>;
 export type FareEstimateFormValues = z.infer<typeof fareEstimateFormSchema>;
 export type CreateBookingFormValues = z.infer<typeof createBookingFormSchema>;
 export type DriverLocationValues = z.infer<typeof driverLocationSchema>;
+
+export const bookingIdFieldSchema = z.object({
+  bookingId: z.coerce
+    .number({ invalid_type_error: 'Booking ID must be a number' })
+    .int()
+    .positive(),
+});
+
+export const driverAcceptBookingSchema = bookingIdFieldSchema;
+
+export const paymentInitiateSchema = z.object({
+  bookingId: z.coerce.number().int().positive('Booking ID is required'),
+  amount: z.coerce
+    .number({ invalid_type_error: 'Enter an amount' })
+    .positive('Amount must be greater than zero'),
+});
+
+export const paymentConfirmSchema = z.object({
+  paymentId: z.coerce.number().int().positive('Payment ID is required'),
+  razorpayOrderId: z.string().trim().max(200).optional(),
+  razorpayPaymentId: z.string().trim().max(200).optional(),
+  razorpaySignature: z.string().trim().max(500).optional(),
+});
+
+export type BookingIdFieldValues = z.infer<typeof bookingIdFieldSchema>;
+export type PaymentInitiateValues = z.infer<typeof paymentInitiateSchema>;
+export type PaymentConfirmValues = z.infer<typeof paymentConfirmSchema>;
