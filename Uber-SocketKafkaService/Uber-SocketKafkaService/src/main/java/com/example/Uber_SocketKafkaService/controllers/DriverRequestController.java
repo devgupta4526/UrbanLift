@@ -4,7 +4,6 @@ package com.example.Uber_SocketKafkaService.controllers;
 import com.example.Uber_SocketKafkaService.dtos.NotificationEventDto;
 import com.example.Uber_SocketKafkaService.dtos.RideRequestDto;
 import com.example.Uber_SocketKafkaService.dtos.RideResponseDto;
-import com.example.Uber_SocketKafkaService.dtos.UpdateBookingRequestDto;
 import com.example.Uber_SocketKafkaService.producers.KafkaProducerService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,6 +54,10 @@ public class DriverRequestController {
             @DestinationVariable String userId,
             RideResponseDto responseDto) {
 
+        if (responseDto == null || responseDto.getBookingId() == null) {
+            logger.warn("Ignoring invalid ride response: payload/bookingId missing");
+            return;
+        }
         logger.info("Received driver response: {}", responseDto);
 
         // Send event to Kafka
@@ -71,15 +74,11 @@ public class DriverRequestController {
             }
 
             if (driverId != null) {
-                UpdateBookingRequestDto updateRequest = UpdateBookingRequestDto.builder()
-                        .status("SCHEDULED")
-                        .driverId(driverId)
-                        .build();
-
-                String url = bookingServiceBaseUrl.replaceAll("/$", "")
-                        + "/api/v1/booking/" + responseDto.getBookingId();
-                logger.info("Updating booking {} with driver {}", responseDto.getBookingId(), driverId);
-                restTemplate.postForEntity(url, updateRequest, String.class);
+                logger.info(
+                        "Driver accepted booking {} with driverId {}. Publishing Kafka event; Booking service consumer will apply assignment.",
+                        responseDto.getBookingId(),
+                        driverId
+                );
 
                 Long passengerId = fetchPassengerIdForBooking(responseDto.getBookingId());
                 if (passengerId != null) {

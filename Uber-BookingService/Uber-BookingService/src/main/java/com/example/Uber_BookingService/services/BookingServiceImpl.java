@@ -5,6 +5,7 @@ import com.example.Uber_BookingService.apis.UberSocketApi;
 import com.example.Uber_BookingService.dtos.*;
 import com.example.Uber_BookingService.producers.KafkaProducerService;
 import com.example.Uber_BookingService.repositories.BookingRepository;
+import com.example.Uber_BookingService.repositories.BookingIdempotencyRepository;
 import com.example.Uber_BookingService.repositories.DriverRepository;
 import com.example.Uber_BookingService.repositories.PassengerRepository;
 import com.example.Uber_EntityService.Models.Booking;
@@ -13,6 +14,7 @@ import com.example.Uber_EntityService.Models.Driver;
 import com.example.Uber_EntityService.Models.Passenger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -47,6 +49,7 @@ public class BookingServiceImpl implements BookingService {
 
     private final UberSocketApi uberSocketApi;
     private final DriverRepository driverRepository;
+    private final BookingIdempotencyRepository bookingIdempotencyRepository;
 
     private final KafkaProducerService kafkaProducerService;
 
@@ -55,22 +58,40 @@ public class BookingServiceImpl implements BookingService {
                               LocationServiceApi locationServiceApi,
                               UberSocketApi uberSocketApi,
                               KafkaProducerService kafkaProducerService,
-                              DriverRepository driverRepository) {
+                              DriverRepository driverRepository,
+                              BookingIdempotencyRepository bookingIdempotencyRepository) {
      this.driverRepository = driverRepository;
      this.passengerRepository = passengerRepository;
      this.bookingRepository = bookingRepository;
      this.locationServiceApi = locationServiceApi;
      this.uberSocketApi = uberSocketApi;
      this.kafkaProducerService = kafkaProducerService;
+     this.bookingIdempotencyRepository = bookingIdempotencyRepository;
     }
 
     @Override
     @Transactional
-    public CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails) {
+    public CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails, String idempotencyKey) {
         validateCreateBookingPayload(bookingDetails);
+        String cleanedIdempotencyKey = sanitizeIdempotencyKey(idempotencyKey);
 
         Passenger passenger = passengerRepository.findById(bookingDetails.getPassengerId())
                 .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId()));
+
+        if (cleanedIdempotencyKey != null) {
+            Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
+            if (existingBookingId != null) {
+                Booking existingBooking = bookingRepository.findById(existingBookingId)
+                        .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
+                if (!sameRoute(existingBooking, bookingDetails)) {
+                    throw new IllegalStateException("Idempotency-Key already used with different booking details");
+                }
+                return CreateBookingResponseDto.builder()
+                        .bookingId(existingBooking.getId())
+                        .bookingStatus(existingBooking.getBookingStatus().toString())
+                        .build();
+            }
+        }
 
         long activeCount = bookingRepository.countByPassengerIdAndBookingStatusIn(
                 passenger.getId(), ACTIVE_BOOKING_STATUSES);
@@ -91,6 +112,26 @@ public class BookingServiceImpl implements BookingService {
                 .build();
         Booking newBooking = bookingRepository.save(booking);
 
+        if (cleanedIdempotencyKey != null) {
+            try {
+                bookingIdempotencyRepository.insertMapping(passenger.getId(), cleanedIdempotencyKey, newBooking.getId());
+            } catch (DuplicateKeyException ex) {
+                // Race-safe path: another request created mapping first; return canonical booking.
+                Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
+                if (existingBookingId != null && !Objects.equals(existingBookingId, newBooking.getId())) {
+                    Booking existingBooking = bookingRepository.findById(existingBookingId)
+                            .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
+                    if (!sameRoute(existingBooking, bookingDetails)) {
+                        throw new IllegalStateException("Idempotency-Key already used with different booking details");
+                    }
+                    return CreateBookingResponseDto.builder()
+                            .bookingId(existingBooking.getId())
+                            .bookingStatus(existingBooking.getBookingStatus().toString())
+                            .build();
+                }
+            }
+        }
+
         passenger.setActiveBooking(newBooking);
         passengerRepository.save(passenger);
 
@@ -105,6 +146,34 @@ public class BookingServiceImpl implements BookingService {
                 .bookingId(newBooking.getId())
                 .bookingStatus(newBooking.getBookingStatus().toString())
                 .build();
+    }
+
+    private static String sanitizeIdempotencyKey(String raw) {
+        if (raw == null) return null;
+        String cleaned = raw.trim();
+        if (cleaned.isEmpty()) return null;
+        if (cleaned.length() > 128) {
+            throw new IllegalArgumentException("Idempotency-Key length must be <= 128");
+        }
+        return cleaned;
+    }
+
+    private static boolean sameRoute(Booking existing, CreateBookingDto request) {
+        if (existing.getPassenger() == null || request.getPassengerId() == null) {
+            return false;
+        }
+        if (!Objects.equals(existing.getPassenger().getId(), request.getPassengerId())) {
+            return false;
+        }
+        return sameLocation(existing.getStartLocation(), request.getStartLocation())
+                && sameLocation(existing.getEndLocation(), request.getEndLocation());
+    }
+
+    private static boolean sameLocation(com.example.Uber_EntityService.Models.ExactLocation a,
+                                        com.example.Uber_EntityService.Models.ExactLocation b) {
+        if (a == null || b == null) return false;
+        return Objects.equals(a.getLatitude(), b.getLatitude())
+                && Objects.equals(a.getLongitude(), b.getLongitude());
     }
 
     private void validateCreateBookingPayload(CreateBookingDto bookingDetails) {

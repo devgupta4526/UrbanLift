@@ -22,8 +22,11 @@ public class BookingController {
     }
 
     @PostMapping
-    public ResponseEntity<CreateBookingResponseDto> createBooking(@RequestBody CreateBookingDto createBookingDto) throws IOException {
-        return new ResponseEntity<>(bookingService.createBooking(createBookingDto), HttpStatus.CREATED);
+    public ResponseEntity<CreateBookingResponseDto> createBooking(
+            @RequestBody CreateBookingDto createBookingDto,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) throws IOException {
+        return new ResponseEntity<>(bookingService.createBooking(createBookingDto, idempotencyKey), HttpStatus.CREATED);
     }
 
     @GetMapping("/{bookingId}/passenger-id")

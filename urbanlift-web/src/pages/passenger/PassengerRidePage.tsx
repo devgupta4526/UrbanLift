@@ -306,11 +306,15 @@ export function PassengerRidePage() {
     setGlobalError(null);
     setGlobalSuccess(null);
     try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${values.passengerId}-${Date.now()}`;
       const res = await bookingApi.create({
         passengerId: values.passengerId,
         startLocation: { latitude: values.startLat, longitude: values.startLng },
         endLocation: { latitude: values.endLat, longitude: values.endLng },
-      });
+      }, idempotencyKey);
       if (res?.bookingId != null) {
         applyTrackId(res.bookingId);
         try {

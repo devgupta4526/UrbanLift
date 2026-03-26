@@ -30,6 +30,13 @@ public class Booking extends BaseModel{
 
     private long totalDistance;
 
+    /**
+     * Optional client-supplied deduplication key for create booking requests.
+     * Unique per passenger.
+     */
+    @Column(name = "idempotency_key", length = 128)
+    private String idempotencyKey;
+
     @ManyToOne(fetch = FetchType.LAZY)
     private Passenger passenger;
 

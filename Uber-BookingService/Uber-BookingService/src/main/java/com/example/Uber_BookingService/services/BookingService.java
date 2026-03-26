@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface BookingService {
 
-    CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails);
+    CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails, String idempotencyKey);
 
     UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto bookingRequestDto, Long bookingId);
 

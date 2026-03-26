@@ -189,10 +189,11 @@ export const bookingApi = {
     passengerId: number;
     startLocation: { latitude: number; longitude: number };
     endLocation: { latitude: number; longitude: number };
-  }) =>
+  }, idempotencyKey?: string) =>
     apiJson<CreateBookingResponseDto>(BOOKING_API_BASE, '/api/v1/booking', {
       method: 'POST',
       body: JSON.stringify(body),
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
     }),
   listByPassenger: (passengerId: number) =>
     apiJson<BookingDetailDto[]>(BOOKING_API_BASE, `/api/v1/booking/passenger/${passengerId}`, {

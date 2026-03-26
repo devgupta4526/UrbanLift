@@ -313,6 +313,5 @@ This project is provided for **portfolio and educational** use. Add a `LICENSE` 
 
 ## Author
 
-**Your Name** — [LinkedIn](https://www.linkedin.com/) · [Portfolio](https://example.com)  
+**Dev Gupta** — [LinkedIn](https://www.linkedin.com/) · [Portfolio](https://devgupta.com)  
 
-*(Replace with your links.)*
