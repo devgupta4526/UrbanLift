@@ -64,6 +64,18 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             """)
     List<Booking> findDetailedByDriverId(@Param("driverId") Long driverId);
 
+    @Query("SELECT p.id FROM Booking b JOIN b.passenger p WHERE b.id = :id")
+    Optional<Long> findPassengerIdByBookingId(@Param("id") Long id);
+
+    @Query("""
+            SELECT DISTINCT b
+            FROM Booking b
+            LEFT JOIN FETCH b.passenger p
+            LEFT JOIN FETCH p.activeBooking
+            WHERE b.id = :id
+            """)
+    Optional<Booking> findWithPassengerAndActiveBooking(@Param("id") Long id);
+
     @Modifying
     @Transactional
     @Query("UPDATE Booking b SET b.bookingStatus = :status WHERE b.id = :id ")

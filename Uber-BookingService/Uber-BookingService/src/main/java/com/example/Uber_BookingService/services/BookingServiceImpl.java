@@ -89,13 +89,13 @@ public class BookingServiceImpl implements BookingService {
         CreateBookingDto immutableRequest = bookingDetails;
         Long createdBookingId;
         try {
-            Passenger passenger = passengerRepository.findById(bookingDetails.getPassengerId())
+            Passenger passenger = passengerRepository.findWithActiveBooking(bookingDetails.getPassengerId())
                     .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId()));
 
             if (cleanedIdempotencyKey != null) {
                 Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
                 if (existingBookingId != null) {
-                    Booking existingBooking = bookingRepository.findById(existingBookingId)
+                    Booking existingBooking = bookingRepository.findDetailedById(existingBookingId)
                             .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
                     if (!sameRoute(existingBooking, bookingDetails)) {
                         throw new IllegalStateException("Idempotency-Key already used with different booking details");
@@ -133,7 +133,7 @@ public class BookingServiceImpl implements BookingService {
                     // Race-safe path: another request created mapping first; return canonical booking.
                     Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
                     if (existingBookingId != null && !Objects.equals(existingBookingId, newBooking.getId())) {
-                        Booking existingBooking = bookingRepository.findById(existingBookingId)
+                        Booking existingBooking = bookingRepository.findDetailedById(existingBookingId)
                                 .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
                         if (!sameRoute(existingBooking, bookingDetails)) {
                             throw new IllegalStateException("Idempotency-Key already used with different booking details");
@@ -218,12 +218,8 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public Long getPassengerIdForBooking(Long bookingId) {
-        Booking b = bookingRepository.findById(bookingId)
+        return bookingRepository.findPassengerIdByBookingId(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
-        if (b.getPassenger() == null) {
-            throw new IllegalStateException("Booking has no passenger");
-        }
-        return b.getPassenger().getId();
     }
 
     private void processNearbyDrivers(NearbyDriversRequestDto request, CreateBookingDto bookingDetails, Long bookingId) {
@@ -307,7 +303,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public UpdateBookingResponseDto updateBooking(UpdateBookingRequestDto bookingRequestDto, Long bookingId) {
-        Optional<Booking> existingBooking = bookingRepository.findById(bookingId);
+        Optional<Booking> existingBooking = bookingRepository.findDetailedById(bookingId);
         if (existingBooking.isEmpty()) {
             throw new IllegalArgumentException("Booking not found: " + bookingId);
         }
@@ -334,7 +330,7 @@ public class BookingServiceImpl implements BookingService {
             clearPassengerActiveBookingIfMatches(bookingId);
         }
 
-        Booking booking = bookingRepository.findById(bookingId).orElseThrow(
+        Booking booking = bookingRepository.findDetailedById(bookingId).orElseThrow(
                 () -> new IllegalArgumentException("Booking not found: " + bookingId)
         );
         return UpdateBookingResponseDto.builder()
@@ -368,7 +364,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         BookingStatus newStatus = BookingStatus.valueOf(status);
         validateStatusTransition(booking.getBookingStatus(), newStatus);
@@ -376,7 +372,7 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Cannot move to SCHEDULED without assigned driver");
         }
         bookingRepository.updateBookingStatusById(bookingId, newStatus);
-        Booking updated = bookingRepository.findById(bookingId)
+        Booking updated = bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
 
         sendNotificationForStatusChange(updated, newStatus);
@@ -412,7 +408,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public void rateDriver(Long bookingId, TripRatingRequestDto request) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         ensureCompleted(booking);
         if (booking.getPassenger() == null || !Objects.equals(booking.getPassenger().getId(), request.getActorId())) {
@@ -432,7 +428,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public void ratePassenger(Long bookingId, TripRatingRequestDto request) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         ensureCompleted(booking);
         if (booking.getDriver() == null || !Objects.equals(booking.getDriver().getId(), request.getActorId())) {
@@ -451,8 +447,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public TripRatingSummaryDto getTripRatings(Long bookingId) {
-        bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        if (!bookingRepository.existsById(bookingId)) {
+            throw new IllegalArgumentException("Booking not found: " + bookingId);
+        }
         return tripRatingRepository.getSummary(bookingId);
     }
 
@@ -532,7 +529,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void clearPassengerActiveBookingIfMatches(Long bookingId) {
-        bookingRepository.findById(bookingId).ifPresent(b -> {
+        bookingRepository.findWithPassengerAndActiveBooking(bookingId).ifPresent(b -> {
             Passenger p = b.getPassenger();
             if (p == null) {
                 return;

@@ -14,6 +14,15 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
     @Query("SELECT d FROM Driver d WHERE LOWER(TRIM(d.email)) = LOWER(TRIM(:email))")
     Optional<Driver> findByEmail(@Param("email") String email);
 
+    @Query("""
+            SELECT DISTINCT d
+            FROM Driver d
+            LEFT JOIN FETCH d.car c
+            LEFT JOIN FETCH c.color
+            WHERE LOWER(TRIM(d.email)) = LOWER(TRIM(:email))
+            """)
+    Optional<Driver> findByEmailWithCar(@Param("email") String email);
+
     List<Driver> findByDriverApprovalStatus(DriverApprovalStatus status);
 
     List<Driver> findByIsAvailableTrue();

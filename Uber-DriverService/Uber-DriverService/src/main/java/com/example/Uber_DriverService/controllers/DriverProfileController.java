@@ -28,7 +28,7 @@ public class DriverProfileController {
 
     private Driver getDriverFromAuth(Authentication auth) {
         String email = (String) auth.getPrincipal();
-        return driverRepository.findByEmail(email)
+        return driverRepository.findByEmailWithCar(email)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + email));
     }
 }

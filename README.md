@@ -116,7 +116,7 @@ Riders and drivers use the **SPA** (default: Vite dev server with **reverse prox
 - **CORS** enabled on Booking & Payment for direct browser access to `:8001` / `:8082` when not using a proxy  
 - **Redlock-style booking lock** (Redis token+TTL lock with local fallback) to avoid duplicate active bookings under concurrency  
 - Internal health endpoint: `GET /internal/health/flow` (flow + dependency readiness)
-- N+1 mitigation in Booking read APIs via fetch-join repository queries for trip lists/details
+- N+1 mitigation in **Booking** (trip lists/details, status updates, ratings, passenger active-booking, lightweight passenger-id lookup) and **Driver** profile (`car` + `color` fetch-join) via targeted repository queries
 
 ---
 
