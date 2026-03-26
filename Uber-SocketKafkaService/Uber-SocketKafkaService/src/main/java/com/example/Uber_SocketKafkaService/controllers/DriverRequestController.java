@@ -2,6 +2,7 @@ package com.example.Uber_SocketKafkaService.controllers;
 
 
 import com.example.Uber_SocketKafkaService.dtos.NotificationEventDto;
+import com.example.Uber_SocketKafkaService.dtos.RideLocationUpdateDto;
 import com.example.Uber_SocketKafkaService.dtos.RideRequestDto;
 import com.example.Uber_SocketKafkaService.dtos.RideResponseDto;
 import com.example.Uber_SocketKafkaService.producers.KafkaProducerService;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,13 +32,19 @@ public class DriverRequestController {
     private static final Logger logger = LoggerFactory.getLogger(DriverRequestController.class);
     private final KafkaProducerService kafkaProducerService;
     private final RestTemplate restTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${urbanlift.booking-service-base-url:http://localhost:8001}")
     private String bookingServiceBaseUrl;
 
-    public DriverRequestController(KafkaProducerService kafkaProducerService, RestTemplate restTemplate) {
+    public DriverRequestController(
+            KafkaProducerService kafkaProducerService,
+            RestTemplate restTemplate,
+            SimpMessagingTemplate messagingTemplate
+    ) {
         this.kafkaProducerService = kafkaProducerService;
         this.restTemplate = restTemplate;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @PostMapping("/newride")
@@ -45,6 +53,20 @@ public class DriverRequestController {
         logger.info("Sending ride request to Kafka: {}", requestDto);
         kafkaProducerService.sendRideRequest(requestDto);
 
+        return ResponseEntity.ok(true);
+    }
+
+    /**
+     * Driver publishes GPS update for one active booking.
+     * Passenger app subscribes to /topic/rideLocation/{bookingId}.
+     */
+    @PostMapping("/location")
+    public ResponseEntity<Boolean> publishRideLocation(@Valid @RequestBody RideLocationUpdateDto dto) {
+        if (dto.getTimestamp() == null) {
+            dto.setTimestamp(System.currentTimeMillis());
+        }
+        String topic = "/topic/rideLocation/" + dto.getBookingId();
+        messagingTemplate.convertAndSend(topic, dto);
         return ResponseEntity.ok(true);
     }
 

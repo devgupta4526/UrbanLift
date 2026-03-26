@@ -34,7 +34,7 @@ Use this project to demonstrate to recruiters that you can design **service boun
 | **Data** | MySQL for transactional data; Redis GEO for driver location indexing (Location Service) |
 | **Security** | JWT in HTTP-only cookies for passenger and driver; Spring Security on auth services |
 | **Frontend** | React 18 + TypeScript, Vite, Tailwind CSS, React Router, React Hook Form + Zod for client-side validation |
-| **UX** | Rider and driver experiences: trip planning, live status polling, trip lifecycle, mock payment checkout |
+| **UX** | Rider and driver experiences: trip planning, **live socket location tracking**, trip lifecycle guards, payment + two-way ratings |
 
 ---
 
@@ -96,20 +96,27 @@ Riders and drivers use the **SPA** (default: Vite dev server with **reverse prox
 - **JWT** stored as **httpOnly** cookie; API returns **passenger id** on sign-in / session validation for seamless booking  
 - **Trip planning**: named pickup/drop-off presets, optional **browser geolocation**, vehicle class selection  
 - **Fare estimate** (Haversine distance + per-vehicle fare config)  
-- **Create booking**, **list trips**, **cancel**, **live trip** view with polling  
-- **Mock payment**: initiate + confirm (configurable mock gateway)
+- **Create booking** with API idempotency (`Idempotency-Key`)  
+- **Live trip** with polling + **WebSocket location stream** (`/topic/rideLocation/{bookingId}`)  
+- **Mock payment**: initiate + confirm (configurable mock gateway)  
+- **Rate driver** after completed ride
 
 ### Driver
 
 - Multi-step **registration** with validated payloads  
 - **Sign-in** with approval gate (`APPROVED` drivers only)  
-- **Profile**, **GPS / availability**, **accept trip** by code, **advance trip status** (scheduled → arrived → in ride → completed)
+- **Profile**, **GPS / availability**, **accept trip** by code, **advance trip status** (scheduled → arrived → in ride → completed)  
+- **Rate passenger** after completed trip  
+- **Estimated earnings** card from completed rides
 
 ### Platform
 
-- **Flyway** migrations on shared schema concepts (e.g. `fare_config` seeds per vehicle type)  
+- **Flyway** migrations on shared schema concepts (e.g. `fare_config`, idempotency and ratings tables)  
 - **Consistent JSON errors** (status, error, message) from Booking/Payment controllers  
-- **CORS** enabled on Booking & Payment for direct browser access to `:8001` / `:8082` when not using a proxy
+- **CORS** enabled on Booking & Payment for direct browser access to `:8001` / `:8082` when not using a proxy  
+- **Redlock-style booking lock** (Redis token+TTL lock with local fallback) to avoid duplicate active bookings under concurrency  
+- Internal health endpoint: `GET /internal/health/flow` (flow + dependency readiness)
+- N+1 mitigation in Booking read APIs via fetch-join repository queries for trip lists/details
 
 ---
 
@@ -142,6 +149,7 @@ Riders and drivers use the **SPA** (default: Vite dev server with **reverse prox
 | **React Router 6** | SPA routing |
 | **React Hook Form** | Form state |
 | **Zod** | Schema validation (aligned with backend rules) |
+| **STOMP + SockJS** | Live location subscription/publish on ride-in-progress |
 
 ### Infrastructure (local)
 
@@ -169,6 +177,7 @@ Riders and drivers use the **SPA** (default: Vite dev server with **reverse prox
 | `Uber-LocationService/` | Redis-backed driver location |
 | `Uber-SocketKafkaService/` | WebSocket / Kafka bridge for real-time style flows |
 | `Uber-NotificationService/` | Notification handling |
+| `deploy/` | Docker Compose + Kubernetes starter manifests (infra + app templates) |
 | `URBANLIFT_API_TESTING_GUIDE.md` / Postman collection | API testing reference (if present in repo) |
 
 ---
@@ -226,7 +235,7 @@ Use each module’s Gradle bootRun:
 ./gradlew bootRun
 ```
 
-Ensure Flyway migrations have run so tables exist (including **`fare_config`** seeds for all vehicle types—see `V10__seed_fare_config_all_car_types.sql` under Entity migrations).
+Ensure Flyway migrations have run so tables exist (including **`fare_config`** seeds in Entity, plus Booking repeatable migrations for `booking_idempotency` and `trip_rating`).
 
 ---
 
@@ -248,6 +257,7 @@ By default, **`vite.config.ts`** proxies:
 | `/__driver` | `http://localhost:8081` |
 | `/__booking` | `http://localhost:8001` |
 | `/__payment` | `http://localhost:8082` |
+| `/__socket` | `http://localhost:3002` |
 
 This keeps the browser on **one origin** so **cookies** and **CORS** behave predictably during development.
 
@@ -277,20 +287,22 @@ This keeps the browser on **one origin** so **cookies** and **CORS** behave pred
 
 Optional `.env` (see `urbanlift-web/.env.example`):
 
-- `VITE_AUTH_API_BASE`, `VITE_DRIVER_API_BASE`, `VITE_BOOKING_API_BASE`, `VITE_PAYMENT_API_BASE` — override API bases  
+- `VITE_AUTH_API_BASE`, `VITE_DRIVER_API_BASE`, `VITE_BOOKING_API_BASE`, `VITE_PAYMENT_API_BASE`, `VITE_SOCKET_API_BASE` — override API bases  
 - `VITE_USE_PROXY=false` — call backends directly (requires CORS; Booking/Payment allow `localhost:5173`)
 
 ### Backend
 
 - **JWT** secrets and expiry in each auth module’s config  
 - **Payment**: mock gateway flag in Payment Service `application.yaml` (`payment.gateway.mock`)  
+- **Booking lock config**: `urbanlift.lock.booking-create.*` and `spring.data.redis.*` in Booking `application.yaml`
 
 ---
 
 ## Testing APIs
 
 - Use the project’s **Postman collection** or **`URBANLIFT_API_TESTING_GUIDE.md`** (if included) for request shapes and sample flows.  
-- Happy path: **signup rider → sign-in → estimate fare → create booking → driver accept / status updates → payment initiate/confirm**.
+- Happy path: **signup rider → sign-in → estimate fare → create booking → driver accept / status updates → payment initiate/confirm → rider/driver ratings**.  
+- Runtime flow health: call `GET /internal/health/flow` on Booking service.
 
 ---
 

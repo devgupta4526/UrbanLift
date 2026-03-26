@@ -13,6 +13,7 @@ import com.example.Uber_EntityService.Models.Booking;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
@@ -27,6 +28,41 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.driver.id = :driverId ORDER BY b.createdAt DESC")
     List<Booking> findByDriverId(@Param("driverId") Long driverId);
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            LEFT JOIN FETCH b.passenger
+            LEFT JOIN FETCH b.driver
+            LEFT JOIN FETCH b.startLocation
+            LEFT JOIN FETCH b.endLocation
+            WHERE b.id = :id
+            """)
+    Optional<Booking> findDetailedById(@Param("id") Long id);
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            LEFT JOIN FETCH b.passenger
+            LEFT JOIN FETCH b.driver
+            LEFT JOIN FETCH b.startLocation
+            LEFT JOIN FETCH b.endLocation
+            WHERE b.passenger.id = :passengerId
+            ORDER BY b.createdAt DESC
+            """)
+    List<Booking> findDetailedByPassengerId(@Param("passengerId") Long passengerId);
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            LEFT JOIN FETCH b.passenger
+            LEFT JOIN FETCH b.driver
+            LEFT JOIN FETCH b.startLocation
+            LEFT JOIN FETCH b.endLocation
+            WHERE b.driver.id = :driverId
+            ORDER BY b.createdAt DESC
+            """)
+    List<Booking> findDetailedByDriverId(@Param("driverId") Long driverId);
 
     @Modifying
     @Transactional

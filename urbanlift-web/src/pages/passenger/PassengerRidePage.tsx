@@ -10,6 +10,7 @@ import {
   authApi,
   bookingApi,
   paymentApi,
+  socketApi,
   ApiError,
   type BookingDetailDto,
   type FareEstimateDto,
@@ -18,6 +19,8 @@ import { SESSION_LAST_BOOKING_ID } from '@/lib/config';
 import { CAR_CLASS_LABELS, RIDE_AREA_LABEL, RIDE_PLACES, getPlace } from '@/lib/places';
 import { rideHeadline, rideSubline } from '@/lib/ride-copy';
 import { getStoredPassengerId, setStoredPassengerIdentity } from '@/lib/storage';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import {
   bookingStatusUpper,
   BOOKING_STATUS_ORDER,
@@ -128,6 +131,7 @@ export function PassengerRidePage() {
   const [liveDetail, setLiveDetail] = useState<BookingDetailDto | null>(null);
   const [payWorking, setPayWorking] = useState(false);
   const [requestingRide, setRequestingRide] = useState(false);
+  const [liveDriverPoint, setLiveDriverPoint] = useState<{ lat: number; lng: number; at: number } | null>(null);
 
   const [trackedBookingId, setTrackedBookingId] = useState<number | null>(() => lastBookingInit ?? null);
 
@@ -432,6 +436,35 @@ export function PassengerRidePage() {
     return () => {
       cancelled = true;
       window.clearInterval(iv);
+    };
+  }, [view, trackedBookingId]);
+
+  useEffect(() => {
+    if (view !== 'ride' || trackedBookingId == null) return;
+    const wsUrl = `${socketApi.base}/ws`;
+    const client = new Client({
+      webSocketFactory: () => new SockJS(wsUrl),
+      reconnectDelay: 2000,
+      onConnect: () => {
+        client.subscribe(`/topic/rideLocation/${trackedBookingId}`, (msg) => {
+          try {
+            const body = JSON.parse(msg.body) as { latitude?: number; longitude?: number; timestamp?: number };
+            if (typeof body.latitude === 'number' && typeof body.longitude === 'number') {
+              setLiveDriverPoint({
+                lat: body.latitude,
+                lng: body.longitude,
+                at: body.timestamp ?? Date.now(),
+              });
+            }
+          } catch {
+            // ignore malformed ws payload
+          }
+        });
+      },
+    });
+    client.activate();
+    return () => {
+      client.deactivate();
     };
   }, [view, trackedBookingId]);
 
@@ -755,6 +788,12 @@ export function PassengerRidePage() {
               {liveDetail?.startLocation ? (
                 <p className="mt-4 text-xs text-zinc-500">
                   {pickupLabel()} → {dropLabel()}
+                </p>
+              ) : null}
+              {liveDriverPoint ? (
+                <p className="mt-2 text-xs text-emerald-300">
+                  Live driver location: {liveDriverPoint.lat.toFixed(5)}, {liveDriverPoint.lng.toFixed(5)} ·{' '}
+                  {new Date(liveDriverPoint.at).toLocaleTimeString()}
                 </p>
               ) : null}
               <p className="mt-4 text-center text-[11px] text-zinc-600">

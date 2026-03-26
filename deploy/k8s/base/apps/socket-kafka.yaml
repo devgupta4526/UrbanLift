@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: socket-kafka-service
+  namespace: urbanlift
+spec:
+  selector:
+    app: socket-kafka-service
+  ports:
+    - port: 3002
+      targetPort: 3002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: socket-kafka-service
+  namespace: urbanlift
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: socket-kafka-service
+  template:
+    metadata:
+      labels:
+        app: socket-kafka-service
+    spec:
+      containers:
+        - name: socket-kafka-service
+          image: your-registry/urbanlift-socket-kafka:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql:3306/uber_db_local
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: root
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: URBANLIFT_BOOKING_SERVICE_BASE_URL
+              value: http://booking-service:8001
+          ports:
+            - containerPort: 3002

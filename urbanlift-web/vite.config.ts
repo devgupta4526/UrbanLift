@@ -38,6 +38,12 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/__payment/, ''),
             },
+            '/__socket': {
+              target: 'http://localhost:3002',
+              changeOrigin: true,
+              ws: true,
+              rewrite: (p) => p.replace(/^\/__socket/, ''),
+            },
           }
         : undefined,
     },

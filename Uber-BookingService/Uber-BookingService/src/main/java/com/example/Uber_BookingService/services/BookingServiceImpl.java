@@ -346,21 +346,21 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingDetailDto getBookingById(Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        Booking booking = bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         return toDetailDto(booking);
     }
 
     @Override
     public List<BookingDetailDto> getBookingsByPassengerId(Long passengerId) {
-        return bookingRepository.findByPassengerId(passengerId).stream()
+        return bookingRepository.findDetailedByPassengerId(passengerId).stream()
                 .map(this::toDetailDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<BookingDetailDto> getBookingsByDriverId(Long driverId) {
-        return bookingRepository.findByDriverId(driverId).stream()
+        return bookingRepository.findDetailedByDriverId(driverId).stream()
                 .map(this::toDetailDto)
                 .collect(Collectors.toList());
     }

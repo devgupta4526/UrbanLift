@@ -1,4 +1,4 @@
-import { AUTH_API_BASE, BOOKING_API_BASE, DRIVER_API_BASE, PAYMENT_API_BASE } from './config';
+import { AUTH_API_BASE, BOOKING_API_BASE, DRIVER_API_BASE, PAYMENT_API_BASE, SOCKET_API_BASE } from './config';
 
 export class ApiError extends Error {
   constructor(
@@ -122,6 +122,14 @@ export interface TripRatingSummaryDto {
   passengerToDriverComment?: string;
   driverToPassengerScore?: number;
   driverToPassengerComment?: string;
+}
+
+export interface RideLocationUpdateDto {
+  bookingId: number;
+  driverId: number;
+  latitude: number;
+  longitude: number;
+  timestamp?: number;
 }
 
 export interface DriverDto {
@@ -288,4 +296,13 @@ export const paymentApi = {
         body: JSON.stringify(body),
       }
     ),
+};
+
+export const socketApi = {
+  base: SOCKET_API_BASE,
+  publishLocation: (body: RideLocationUpdateDto) =>
+    apiJson<boolean>(SOCKET_API_BASE, '/api/socket/location', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };

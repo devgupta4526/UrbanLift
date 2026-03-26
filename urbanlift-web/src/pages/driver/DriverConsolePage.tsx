@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
-import { bookingApi, driverApi, ApiError, type BookingDetailDto, type DriverDto } from '@/lib/api';
+import { bookingApi, driverApi, socketApi, ApiError, type BookingDetailDto, type DriverDto } from '@/lib/api';
 import { RIDE_AREA_LABEL } from '@/lib/places';
 import { driverTripStageLabel } from '@/lib/ride-copy';
 import { driverStatusAction, formatBookingPerson } from '@/lib/booking-flow';
@@ -95,6 +95,19 @@ export function DriverConsolePage() {
     setBanner(null);
     try {
       await driverApi.updateLocation({ latitude: values.latitude, longitude: values.longitude });
+      const activeBooking = bookings?.find((b) => {
+        const s = (b.bookingStatus ?? '').toUpperCase();
+        return ['SCHEDULED', 'CAB_ARRIVED', 'IN_RIDE'].includes(s);
+      });
+      if (activeBooking?.id && profile?.id) {
+        await socketApi.publishLocation({
+          bookingId: activeBooking.id,
+          driverId: profile.id,
+          latitude: values.latitude,
+          longitude: values.longitude,
+          timestamp: Date.now(),
+        });
+      }
       setBanner({ type: 'success', text: 'Location updated. Riders can find you nearby.' });
     } catch (e) {
       setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Location update failed.' });
