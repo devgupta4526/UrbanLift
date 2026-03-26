@@ -117,6 +117,13 @@ export interface UpdateBookingResponseDto {
   driver?: BookingPersonDto | null;
 }
 
+export interface TripRatingSummaryDto {
+  passengerToDriverScore?: number;
+  passengerToDriverComment?: string;
+  driverToPassengerScore?: number;
+  driverToPassengerComment?: string;
+}
+
 export interface DriverDto {
   id: number;
   firstName?: string;
@@ -229,6 +236,18 @@ export const bookingApi = {
       `/api/v1/booking/${bookingId}/passenger-id`,
       { method: 'GET' }
     ),
+  rateDriver: (bookingId: number, body: { actorId: number; score: number; comment?: string }) =>
+    apiJson<void>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}/rating/driver`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  ratePassenger: (bookingId: number, body: { actorId: number; score: number; comment?: string }) =>
+    apiJson<void>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}/rating/passenger`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  getRatings: (bookingId: number) =>
+    apiJson<TripRatingSummaryDto>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}/rating`, { method: 'GET' }),
 };
 
 export const paymentApi = {

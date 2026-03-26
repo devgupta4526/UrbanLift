@@ -24,5 +24,11 @@ public interface BookingService {
 
     /** Internal/lightweight API for other services (e.g. Socket notifications). */
     Long getPassengerIdForBooking(Long bookingId);
+
+    void rateDriver(Long bookingId, TripRatingRequestDto request);
+
+    void ratePassenger(Long bookingId, TripRatingRequestDto request);
+
+    TripRatingSummaryDto getTripRatings(Long bookingId);
 }
 

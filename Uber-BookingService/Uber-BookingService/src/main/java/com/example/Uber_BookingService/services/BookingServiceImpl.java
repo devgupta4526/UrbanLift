@@ -10,6 +10,7 @@ import com.example.Uber_BookingService.repositories.BookingRepository;
 import com.example.Uber_BookingService.repositories.BookingIdempotencyRepository;
 import com.example.Uber_BookingService.repositories.DriverRepository;
 import com.example.Uber_BookingService.repositories.PassengerRepository;
+import com.example.Uber_BookingService.repositories.TripRatingRepository;
 import com.example.Uber_EntityService.Models.Booking;
 import com.example.Uber_EntityService.Models.BookingStatus;
 import com.example.Uber_EntityService.Models.Driver;
@@ -53,6 +54,7 @@ public class BookingServiceImpl implements BookingService {
     private final DriverRepository driverRepository;
     private final BookingIdempotencyRepository bookingIdempotencyRepository;
     private final RedlockManager redlockManager;
+    private final TripRatingRepository tripRatingRepository;
 
     private final KafkaProducerService kafkaProducerService;
 
@@ -63,7 +65,8 @@ public class BookingServiceImpl implements BookingService {
                               KafkaProducerService kafkaProducerService,
                               DriverRepository driverRepository,
                               BookingIdempotencyRepository bookingIdempotencyRepository,
-                              RedlockManager redlockManager) {
+                              RedlockManager redlockManager,
+                              TripRatingRepository tripRatingRepository) {
      this.driverRepository = driverRepository;
      this.passengerRepository = passengerRepository;
      this.bookingRepository = bookingRepository;
@@ -72,6 +75,7 @@ public class BookingServiceImpl implements BookingService {
      this.kafkaProducerService = kafkaProducerService;
      this.bookingIdempotencyRepository = bookingIdempotencyRepository;
      this.redlockManager = redlockManager;
+     this.tripRatingRepository = tripRatingRepository;
     }
 
     @Override
@@ -405,6 +409,53 @@ public class BookingServiceImpl implements BookingService {
         return updateBookingStatus(bookingId, BookingStatus.CANCELLED.name());
     }
 
+    @Override
+    @Transactional
+    public void rateDriver(Long bookingId, TripRatingRequestDto request) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        ensureCompleted(booking);
+        if (booking.getPassenger() == null || !Objects.equals(booking.getPassenger().getId(), request.getActorId())) {
+            throw new IllegalStateException("Only booking passenger can rate driver");
+        }
+        if (booking.getDriver() == null) {
+            throw new IllegalStateException("Cannot rate driver: no driver assigned");
+        }
+        tripRatingRepository.upsertPassengerToDriver(
+                bookingId,
+                request.getActorId(),
+                request.getScore(),
+                sanitizeComment(request.getComment())
+        );
+    }
+
+    @Override
+    @Transactional
+    public void ratePassenger(Long bookingId, TripRatingRequestDto request) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        ensureCompleted(booking);
+        if (booking.getDriver() == null || !Objects.equals(booking.getDriver().getId(), request.getActorId())) {
+            throw new IllegalStateException("Only assigned driver can rate passenger");
+        }
+        if (booking.getPassenger() == null) {
+            throw new IllegalStateException("Cannot rate passenger: no passenger linked");
+        }
+        tripRatingRepository.upsertDriverToPassenger(
+                bookingId,
+                request.getActorId(),
+                request.getScore(),
+                sanitizeComment(request.getComment())
+        );
+    }
+
+    @Override
+    public TripRatingSummaryDto getTripRatings(Long bookingId) {
+        bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        return tripRatingRepository.getSummary(bookingId);
+    }
+
     private BookingDetailDto toDetailDto(Booking b) {
         return BookingDetailDto.builder()
                 .id(b.getId())
@@ -492,5 +543,18 @@ public class BookingServiceImpl implements BookingService {
                 passengerRepository.save(p);
             }
         });
+    }
+
+    private static void ensureCompleted(Booking booking) {
+        if (booking.getBookingStatus() != BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Ratings are allowed only for completed trips");
+        }
+    }
+
+    private static String sanitizeComment(String comment) {
+        if (comment == null) return null;
+        String trimmed = comment.trim();
+        if (trimmed.isEmpty()) return null;
+        return trimmed.length() > 500 ? trimmed.substring(0, 500) : trimmed;
     }
 }

@@ -31,15 +31,17 @@ import {
   createBookingFormSchema,
   paymentInitiateSchema,
   paymentConfirmSchema,
+  tripRatingSchema,
   type PassengerIdFormValues,
   type FareEstimateFormValues,
   type CreateBookingFormValues,
   type PaymentInitiateValues,
+  type TripRatingValues,
 } from '@/lib/validation/schemas';
 
 const CAR_TYPES = ['SEDAN', 'HATCHBACK', 'SUV', 'COMPACT_SUV', 'XL'] as const;
 
-type HubView = 'home' | 'plan' | 'price' | 'ride' | 'activity' | 'account' | 'pay';
+type HubView = 'home' | 'plan' | 'price' | 'ride' | 'activity' | 'account' | 'pay' | 'rate';
 
 function money(n: unknown): string {
   if (n == null) return '—';
@@ -163,6 +165,11 @@ export function PassengerRidePage() {
     resolver: zodResolver(paymentInitiateSchema),
     mode: 'onBlur',
     defaultValues: { bookingId: lastBookingInit, amount: undefined as unknown as number },
+  });
+  const ratingForm = useForm<TripRatingValues>({
+    resolver: zodResolver(tripRatingSchema),
+    mode: 'onBlur',
+    defaultValues: { bookingId: lastBookingInit, score: 5, comment: '' },
   });
 
   useEffect(() => {
@@ -446,11 +453,33 @@ export function PassengerRidePage() {
       if (!confirmParsed.success) throw new Error('Invalid payment reference.');
       await paymentApi.confirm({ paymentId: confirmParsed.data.paymentId });
       setGlobalSuccess('Payment successful. Thanks for riding with UrbanLift.');
-      setView('activity');
+      ratingForm.setValue('bookingId', values.bookingId);
+      setView('rate');
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Payment failed.');
     } finally {
       setPayWorking(false);
+    }
+  }
+
+  async function submitRiderRating(values: TripRatingValues) {
+    const passengerId = resolvedPassengerIdForActions();
+    if (passengerId == null) {
+      setGlobalError('Please sign in again to submit a rating.');
+      setView('account');
+      return;
+    }
+    try {
+      await bookingApi.rateDriver(values.bookingId, {
+        actorId: passengerId,
+        score: values.score,
+        comment: values.comment?.trim() || undefined,
+      });
+      setGlobalSuccess('Thanks! Your rating was submitted.');
+      setView('activity');
+      await refreshTrips(passengerId);
+    } catch (e) {
+      setGlobalError(e instanceof ApiError ? e.message : 'Could not submit rating.');
     }
   }
 
@@ -467,6 +496,7 @@ export function PassengerRidePage() {
 
   const ie = idForm.formState.errors;
   const pfe = payForm.formState.errors;
+  const rfe = ratingForm.formState.errors;
 
   return (
     <div className="min-h-screen bg-black pb-24 text-zinc-100">
@@ -835,17 +865,30 @@ export function PassengerRidePage() {
                       {active ? <p className="text-sm font-medium text-signal">Live trip</p> : null}
                     </button>
                     {completed && !cancelled ? (
-                      <UiButton
-                        type="button"
-                        variant="ghost"
-                        className="mt-3 w-full !min-h-10 border border-white/10 text-sm"
-                        onClick={() => {
-                          payForm.setValue('bookingId', b.id);
-                          setView('pay');
-                        }}
-                      >
-                        Pay for this trip
-                      </UiButton>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <UiButton
+                          type="button"
+                          variant="ghost"
+                          className="w-full !min-h-10 border border-white/10 text-sm"
+                          onClick={() => {
+                            payForm.setValue('bookingId', b.id);
+                            setView('pay');
+                          }}
+                        >
+                          Pay
+                        </UiButton>
+                        <UiButton
+                          type="button"
+                          variant="ghost"
+                          className="w-full !min-h-10 border border-white/10 text-sm"
+                          onClick={() => {
+                            ratingForm.setValue('bookingId', b.id);
+                            setView('rate');
+                          }}
+                        >
+                          Rate
+                        </UiButton>
+                      </div>
                     ) : null}
                     {active && b.bookingStatus && !['CANCELLED', 'COMPLETED'].includes(b.bookingStatus.toUpperCase()) ? (
                       <UiButton
@@ -904,6 +947,30 @@ export function PassengerRidePage() {
               </UiField>
               <UiButton type="submit" className="w-full !py-4 text-base" loading={payWorking}>
                 Pay now
+              </UiButton>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* —— Rate —— */}
+      {view === 'rate' && (
+        <div className="mx-auto min-h-screen max-w-lg">
+          <ScreenBar title="Rate your driver" onBack={() => setView('activity')} />
+          <div className="px-4 py-8">
+            <p className="text-sm text-zinc-400">Help us improve ride quality with quick feedback.</p>
+            <form onSubmit={ratingForm.handleSubmit(submitRiderRating)} className="mt-6 space-y-5" noValidate>
+              <UiField label="Trip" id="ratebid" error={rfe.bookingId?.message}>
+                <UiInput id="ratebid" type="number" step={1} min={1} {...ratingForm.register('bookingId')} />
+              </UiField>
+              <UiField label="Rating (1-5)" id="ratescore" error={rfe.score?.message}>
+                <UiInput id="ratescore" type="number" step={1} min={1} max={5} {...ratingForm.register('score')} />
+              </UiField>
+              <UiField label="Comment (optional)" id="ratecomment" error={rfe.comment?.message}>
+                <UiInput id="ratecomment" {...ratingForm.register('comment')} />
+              </UiField>
+              <UiButton type="submit" className="w-full !py-4 text-base" loading={ratingForm.formState.isSubmitting}>
+                Submit rating
               </UiButton>
             </form>
           </div>

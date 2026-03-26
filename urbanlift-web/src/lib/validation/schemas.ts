@@ -177,6 +177,13 @@ export const paymentConfirmSchema = z.object({
   razorpaySignature: z.string().trim().max(500).optional(),
 });
 
+export const tripRatingSchema = z.object({
+  bookingId: z.coerce.number().int().positive(),
+  score: z.coerce.number().int().min(1, 'Minimum 1 star').max(5, 'Maximum 5 stars'),
+  comment: z.string().trim().max(500).optional(),
+});
+
 export type BookingIdFieldValues = z.infer<typeof bookingIdFieldSchema>;
 export type PaymentInitiateValues = z.infer<typeof paymentInitiateSchema>;
 export type PaymentConfirmValues = z.infer<typeof paymentConfirmSchema>;
+export type TripRatingValues = z.infer<typeof tripRatingSchema>;

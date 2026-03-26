@@ -161,6 +161,33 @@ export function DriverConsolePage() {
   const availErr = availForm.formState.errors;
   const acceptErr = acceptForm.formState.errors;
   const isOnline = availForm.watch('available');
+  const completedTrips = bookings?.filter((b) => (b.bookingStatus ?? '').toUpperCase() === 'COMPLETED') ?? [];
+  const estimatedEarnings = completedTrips.reduce((sum, b) => {
+    const km = Math.max(Number(b.totalDistance ?? 0), 1);
+    return sum + (50 + km * 12);
+  }, 0);
+
+  async function ratePassenger(bookingId: number) {
+    if (profile?.id == null) return;
+    const scoreRaw = window.prompt('Rate rider (1-5):', '5');
+    if (!scoreRaw) return;
+    const score = Number(scoreRaw);
+    if (!Number.isFinite(score) || score < 1 || score > 5) {
+      setBanner({ type: 'error', text: 'Rating must be between 1 and 5.' });
+      return;
+    }
+    const comment = window.prompt('Comment (optional):', '') ?? undefined;
+    try {
+      await bookingApi.ratePassenger(bookingId, {
+        actorId: profile.id,
+        score: Math.round(score),
+        comment: comment?.trim() || undefined,
+      });
+      setBanner({ type: 'success', text: 'Rider rating submitted.' });
+    } catch (e) {
+      setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Could not submit rating.' });
+    }
+  }
 
   return (
     <div className="min-h-screen bg-black pb-32 text-zinc-100">
@@ -244,6 +271,17 @@ export function DriverConsolePage() {
           ) : null}
         </section>
 
+        <section className="mt-6 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
+          <p className="text-sm font-semibold text-emerald-200">Today</p>
+          <div className="mt-2 flex items-end justify-between">
+            <div>
+              <p className="text-3xl font-bold text-white">₹{Math.round(estimatedEarnings).toLocaleString()}</p>
+              <p className="text-xs text-zinc-400">Estimated earnings from completed rides</p>
+            </div>
+            <p className="text-sm text-zinc-300">{completedTrips.length} completed</p>
+          </div>
+        </section>
+
         <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/50 p-5">
           <p className="text-sm font-semibold text-white">Your location</p>
           <form onSubmit={locForm.handleSubmit(submitLocation)} className="mt-4 grid grid-cols-2 gap-3" noValidate>
@@ -306,6 +344,13 @@ export function DriverConsolePage() {
                         onClick={() => void advanceTrip(b.id, action.nextStatus)}
                       >
                         {action.label}
+                      </UiButton>
+                    </div>
+                  ) : null}
+                  {!action && (b.bookingStatus ?? '').toUpperCase() === 'COMPLETED' ? (
+                    <div className="p-4 pt-0">
+                      <UiButton type="button" variant="ghost" className="w-full border border-white/10" onClick={() => void ratePassenger(b.id)}>
+                        Rate rider
                       </UiButton>
                     </div>
                   ) : null}

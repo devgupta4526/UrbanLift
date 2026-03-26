@@ -65,6 +65,23 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 
+    @PostMapping("/{bookingId}/rating/driver")
+    public ResponseEntity<Void> rateDriver(@PathVariable Long bookingId, @RequestBody @jakarta.validation.Valid TripRatingRequestDto request) {
+        bookingService.rateDriver(bookingId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{bookingId}/rating/passenger")
+    public ResponseEntity<Void> ratePassenger(@PathVariable Long bookingId, @RequestBody @jakarta.validation.Valid TripRatingRequestDto request) {
+        bookingService.ratePassenger(bookingId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{bookingId}/rating")
+    public ResponseEntity<TripRatingSummaryDto> getTripRatings(@PathVariable Long bookingId) {
+        return ResponseEntity.ok(bookingService.getTripRatings(bookingId));
+    }
+
 
 }
 
