@@ -3,6 +3,7 @@ package com.example.Uber_SocketKafkaService.consumers;
 import com.example.Uber_SocketKafkaService.dtos.RideRequestDto;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Component
+@Profile("test")
 public class RideRequestTestConsumer {
 
     private static final Logger logger = LoggerFactory.getLogger(RideRequestTestConsumer.class);

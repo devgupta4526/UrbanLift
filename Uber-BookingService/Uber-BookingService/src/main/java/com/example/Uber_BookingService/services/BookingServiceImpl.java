@@ -3,6 +3,8 @@ package com.example.Uber_BookingService.services;
 import com.example.Uber_BookingService.apis.LocationServiceApi;
 import com.example.Uber_BookingService.apis.UberSocketApi;
 import com.example.Uber_BookingService.dtos.*;
+import com.example.Uber_BookingService.locking.LockHandle;
+import com.example.Uber_BookingService.locking.RedlockManager;
 import com.example.Uber_BookingService.producers.KafkaProducerService;
 import com.example.Uber_BookingService.repositories.BookingRepository;
 import com.example.Uber_BookingService.repositories.BookingIdempotencyRepository;
@@ -50,6 +52,7 @@ public class BookingServiceImpl implements BookingService {
     private final UberSocketApi uberSocketApi;
     private final DriverRepository driverRepository;
     private final BookingIdempotencyRepository bookingIdempotencyRepository;
+    private final RedlockManager redlockManager;
 
     private final KafkaProducerService kafkaProducerService;
 
@@ -59,7 +62,8 @@ public class BookingServiceImpl implements BookingService {
                               UberSocketApi uberSocketApi,
                               KafkaProducerService kafkaProducerService,
                               DriverRepository driverRepository,
-                              BookingIdempotencyRepository bookingIdempotencyRepository) {
+                              BookingIdempotencyRepository bookingIdempotencyRepository,
+                              RedlockManager redlockManager) {
      this.driverRepository = driverRepository;
      this.passengerRepository = passengerRepository;
      this.bookingRepository = bookingRepository;
@@ -67,6 +71,7 @@ public class BookingServiceImpl implements BookingService {
      this.uberSocketApi = uberSocketApi;
      this.kafkaProducerService = kafkaProducerService;
      this.bookingIdempotencyRepository = bookingIdempotencyRepository;
+     this.redlockManager = redlockManager;
     }
 
     @Override
@@ -74,51 +79,18 @@ public class BookingServiceImpl implements BookingService {
     public CreateBookingResponseDto createBooking(CreateBookingDto bookingDetails, String idempotencyKey) {
         validateCreateBookingPayload(bookingDetails);
         String cleanedIdempotencyKey = sanitizeIdempotencyKey(idempotencyKey);
+        LockHandle lock = redlockManager.acquireForPassenger(bookingDetails.getPassengerId());
+        CreateBookingResponseDto response;
+        NearbyDriversRequestDto request;
+        CreateBookingDto immutableRequest = bookingDetails;
+        Long createdBookingId;
+        try {
+            Passenger passenger = passengerRepository.findById(bookingDetails.getPassengerId())
+                    .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId()));
 
-        Passenger passenger = passengerRepository.findById(bookingDetails.getPassengerId())
-                .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + bookingDetails.getPassengerId()));
-
-        if (cleanedIdempotencyKey != null) {
-            Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
-            if (existingBookingId != null) {
-                Booking existingBooking = bookingRepository.findById(existingBookingId)
-                        .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
-                if (!sameRoute(existingBooking, bookingDetails)) {
-                    throw new IllegalStateException("Idempotency-Key already used with different booking details");
-                }
-                return CreateBookingResponseDto.builder()
-                        .bookingId(existingBooking.getId())
-                        .bookingStatus(existingBooking.getBookingStatus().toString())
-                        .build();
-            }
-        }
-
-        long activeCount = bookingRepository.countByPassengerIdAndBookingStatusIn(
-                passenger.getId(), ACTIVE_BOOKING_STATUSES);
-        if (activeCount > 0 || passenger.getActiveBooking() != null) {
-            throw new IllegalStateException(
-                    "Passenger already has an active booking. Finish or cancel it before booking again.");
-        }
-
-        Date now = new Date();
-        Booking booking = Booking.builder()
-                .bookingStatus(BookingStatus.ASSIGNING_DRIVER)
-                .bookingDate(now)
-                .startTime(now)
-                .endTime(now)
-                .startLocation(bookingDetails.getStartLocation())
-                .endLocation(bookingDetails.getEndLocation())
-                .passenger(passenger)
-                .build();
-        Booking newBooking = bookingRepository.save(booking);
-
-        if (cleanedIdempotencyKey != null) {
-            try {
-                bookingIdempotencyRepository.insertMapping(passenger.getId(), cleanedIdempotencyKey, newBooking.getId());
-            } catch (DuplicateKeyException ex) {
-                // Race-safe path: another request created mapping first; return canonical booking.
+            if (cleanedIdempotencyKey != null) {
                 Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
-                if (existingBookingId != null && !Objects.equals(existingBookingId, newBooking.getId())) {
+                if (existingBookingId != null) {
                     Booking existingBooking = bookingRepository.findById(existingBookingId)
                             .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
                     if (!sameRoute(existingBooking, bookingDetails)) {
@@ -130,22 +102,64 @@ public class BookingServiceImpl implements BookingService {
                             .build();
                 }
             }
+
+            long activeCount = bookingRepository.countByPassengerIdAndBookingStatusIn(
+                    passenger.getId(), ACTIVE_BOOKING_STATUSES);
+            if (activeCount > 0 || passenger.getActiveBooking() != null) {
+                throw new IllegalStateException(
+                        "Passenger already has an active booking. Finish or cancel it before booking again.");
+            }
+
+            Date now = new Date();
+            Booking booking = Booking.builder()
+                    .bookingStatus(BookingStatus.ASSIGNING_DRIVER)
+                    .bookingDate(now)
+                    .startTime(now)
+                    .endTime(now)
+                    .startLocation(bookingDetails.getStartLocation())
+                    .endLocation(bookingDetails.getEndLocation())
+                    .passenger(passenger)
+                    .build();
+            Booking newBooking = bookingRepository.save(booking);
+
+            if (cleanedIdempotencyKey != null) {
+                try {
+                    bookingIdempotencyRepository.insertMapping(passenger.getId(), cleanedIdempotencyKey, newBooking.getId());
+                } catch (DuplicateKeyException ex) {
+                    // Race-safe path: another request created mapping first; return canonical booking.
+                    Long existingBookingId = bookingIdempotencyRepository.findBookingId(passenger.getId(), cleanedIdempotencyKey);
+                    if (existingBookingId != null && !Objects.equals(existingBookingId, newBooking.getId())) {
+                        Booking existingBooking = bookingRepository.findById(existingBookingId)
+                                .orElseThrow(() -> new IllegalStateException("Idempotency mapping points to missing booking"));
+                        if (!sameRoute(existingBooking, bookingDetails)) {
+                            throw new IllegalStateException("Idempotency-Key already used with different booking details");
+                        }
+                        return CreateBookingResponseDto.builder()
+                                .bookingId(existingBooking.getId())
+                                .bookingStatus(existingBooking.getBookingStatus().toString())
+                                .build();
+                    }
+                }
+            }
+
+            passenger.setActiveBooking(newBooking);
+            passengerRepository.save(passenger);
+
+            request = NearbyDriversRequestDto.builder()
+                    .latitude(bookingDetails.getStartLocation().getLatitude())
+                    .longitude(bookingDetails.getStartLocation().getLongitude())
+                    .build();
+            createdBookingId = newBooking.getId();
+            response = CreateBookingResponseDto.builder()
+                    .bookingId(newBooking.getId())
+                    .bookingStatus(newBooking.getBookingStatus().toString())
+                    .build();
+        } finally {
+            redlockManager.release(lock);
         }
 
-        passenger.setActiveBooking(newBooking);
-        passengerRepository.save(passenger);
-
-        NearbyDriversRequestDto request = NearbyDriversRequestDto.builder()
-                .latitude(bookingDetails.getStartLocation().getLatitude())
-                .longitude(bookingDetails.getStartLocation().getLongitude())
-                .build();
-
-        processNearbyDrivers(request, bookingDetails, newBooking.getId());
-
-        return CreateBookingResponseDto.builder()
-                .bookingId(newBooking.getId())
-                .bookingStatus(newBooking.getBookingStatus().toString())
-                .build();
+        processNearbyDrivers(request, immutableRequest, createdBookingId);
+        return response;
     }
 
     private static String sanitizeIdempotencyKey(String raw) {
@@ -293,16 +307,22 @@ public class BookingServiceImpl implements BookingService {
         if (existingBooking.isEmpty()) {
             throw new IllegalArgumentException("Booking not found: " + bookingId);
         }
+        Booking current = existingBooking.get();
 
         BookingStatus status = bookingRequestDto.getStatus() != null
                 ? BookingStatus.valueOf(bookingRequestDto.getStatus())
                 : BookingStatus.SCHEDULED;
+
+        validateStatusTransition(current.getBookingStatus(), status);
 
         Driver driver = null;
         if (bookingRequestDto.getDriverId() != null) {
             driver = driverRepository.findById(bookingRequestDto.getDriverId())
                     .orElseThrow(() -> new IllegalArgumentException("Driver not found: "
                             + bookingRequestDto.getDriverId()));
+        }
+        if (status == BookingStatus.SCHEDULED && driver == null && current.getDriver() == null) {
+            throw new IllegalStateException("Driver assignment requires driverId");
         }
         bookingRepository.updateBookingStatusAndDriverById(bookingId, status, driver);
 
@@ -347,6 +367,10 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
         BookingStatus newStatus = BookingStatus.valueOf(status);
+        validateStatusTransition(booking.getBookingStatus(), newStatus);
+        if (newStatus == BookingStatus.SCHEDULED && booking.getDriver() == null) {
+            throw new IllegalStateException("Cannot move to SCHEDULED without assigned driver");
+        }
         bookingRepository.updateBookingStatusById(bookingId, newStatus);
         Booking updated = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
@@ -432,6 +456,28 @@ public class BookingServiceImpl implements BookingService {
         return BigDecimal.valueOf(50.0)
                 .add(BigDecimal.valueOf(km).multiply(BigDecimal.valueOf(12.0)))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static void validateStatusTransition(BookingStatus current, BookingStatus next) {
+        if (current == null) {
+            throw new IllegalStateException("Current booking status is missing");
+        }
+        if (next == null) {
+            throw new IllegalArgumentException("Requested booking status is required");
+        }
+        if (current == next) {
+            return; // idempotent repeated call
+        }
+        boolean allowed = switch (current) {
+            case ASSIGNING_DRIVER -> (next == BookingStatus.SCHEDULED || next == BookingStatus.CANCELLED);
+            case SCHEDULED -> (next == BookingStatus.CAB_ARRIVED || next == BookingStatus.CANCELLED);
+            case CAB_ARRIVED -> (next == BookingStatus.IN_RIDE || next == BookingStatus.CANCELLED);
+            case IN_RIDE -> (next == BookingStatus.COMPLETED || next == BookingStatus.CANCELLED);
+            case COMPLETED, CANCELLED -> false;
+        };
+        if (!allowed) {
+            throw new IllegalStateException("Invalid booking status transition: " + current + " -> " + next);
+        }
     }
 
     private void clearPassengerActiveBookingIfMatches(Long bookingId) {
