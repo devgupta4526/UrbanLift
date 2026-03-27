@@ -85,4 +85,16 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByPassengerIdAndBookingStatusIn(@Param("passengerId") Long passengerId,
                                               @Param("statuses") Collection<BookingStatus> statuses);
 
+    @Query("""
+            SELECT b
+            FROM Booking b
+            LEFT JOIN FETCH b.passenger
+            LEFT JOIN FETCH b.driver
+            LEFT JOIN FETCH b.startLocation
+            LEFT JOIN FETCH b.endLocation
+            WHERE b.bookingStatus = :status AND b.driver IS NULL
+            ORDER BY b.createdAt DESC
+            """)
+    List<Booking> findDetailedByStatusAndDriverIsNull(@Param("status") BookingStatus status);
+
 }

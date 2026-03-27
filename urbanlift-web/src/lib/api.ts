@@ -218,6 +218,9 @@ export const bookingApi = {
     apiJson<BookingDetailDto[]>(BOOKING_API_BASE, `/api/v1/booking/driver/${driverId}`, {
       method: 'GET',
     }),
+  /** ASSIGNING_DRIVER + no driver — driver app pool (accept ride). */
+  listOpenAssigning: () =>
+    apiJson<BookingDetailDto[]>(BOOKING_API_BASE, '/api/v1/booking/open-assigning', { method: 'GET' }),
   get: (bookingId: number) =>
     apiJson<BookingDetailDto>(BOOKING_API_BASE, `/api/v1/booking/${bookingId}`, { method: 'GET' }),
   cancel: (bookingId: number) =>

@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
-import { authApi, bookingApi, driverApi, paymentApi, socketApi, ApiError } from '@/lib/api';
+import { bookingApi, driverApi, paymentApi, socketApi, ApiError } from '@/lib/api';
 import { getPlace, RIDE_PLACES } from '@/lib/places';
 import { isActiveTripStatus } from '@/lib/booking-flow';
-import { setStoredPassengerIdentity } from '@/lib/storage';
+import { resolvePassengerSession } from '@/lib/passenger-session';
 
 type StepState = 'pending' | 'running' | 'pass' | 'fail' | 'skip';
 
@@ -49,7 +49,11 @@ export function QaHubPage() {
 
   const initialSteps: QaStep[] = useMemo(
     () => [
-      { id: 'p-validate', label: 'Passenger session (GET auth /validate)', state: 'pending' },
+      {
+        id: 'p-validate',
+        label: 'Passenger session (validate + saved rider id fallback)',
+        state: 'pending',
+      },
       { id: 'd-profile', label: 'Driver session (GET driver /profile) — optional for full trip', state: 'pending' },
       { id: 'reset', label: 'Cancel active passenger trips (cleanup)', state: 'pending' },
       { id: 'fare', label: 'Payment: fare estimate', state: 'pending' },
@@ -108,28 +112,37 @@ export function QaHubPage() {
       update(id, { state: 'skip', detail: reason });
     };
 
-    await runOne('p-validate', async () => {
-      const v = await authApi.validate();
-      if (!v.success || v.passengerId == null) {
-        throw new Error('No passenger session. Sign in at /passenger first.');
-      }
-      passengerId = v.passengerId;
-      setStoredPassengerIdentity(v.passengerId, v.email);
-    });
-
-    update('d-profile', { state: 'running', detail: undefined });
+    update('p-validate', { state: 'running', detail: undefined });
     try {
-      const d = await driverApi.profile();
-      if (d.id == null) throw new Error('No driver id on profile');
-      driverId = d.id;
-      driverOk = true;
-      update('d-profile', { state: 'pass' });
-    } catch (e) {
-      driverOk = false;
-      update('d-profile', {
-        state: 'skip',
-        detail: `${errMessage(e)} — Sign in at /driver to enable accept / advance / socket / pay / rating.`,
+      const session = await resolvePassengerSession();
+      passengerId = session.passengerId;
+      update('p-validate', {
+        state: 'pass',
+        detail: session.note,
       });
+    } catch (e) {
+      failed = true;
+      update('p-validate', {
+        state: 'fail',
+        detail: `${errMessage(e)} Sign in at /passenger (or create an account) so a rider id is saved on this device.`,
+      });
+    }
+
+    if (!failed) {
+      update('d-profile', { state: 'running', detail: undefined });
+      try {
+        const d = await driverApi.profile();
+        if (d.id == null) throw new Error('No driver id on profile');
+        driverId = d.id;
+        driverOk = true;
+        update('d-profile', { state: 'pass' });
+      } catch (e) {
+        driverOk = false;
+        update('d-profile', {
+          state: 'skip',
+          detail: `${errMessage(e)} — Sign in at /driver to enable accept / advance / socket / pay / rating.`,
+        });
+      }
     }
 
     if (failed) {

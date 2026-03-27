@@ -374,6 +374,13 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    public List<BookingDetailDto> getOpenAssigningBookings() {
+        return bookingRepository.findDetailedByStatusAndDriverIsNull(BookingStatus.ASSIGNING_DRIVER).stream()
+                .map(this::toDetailDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status) {
         Booking booking = bookingRepository.findDetailedById(bookingId)

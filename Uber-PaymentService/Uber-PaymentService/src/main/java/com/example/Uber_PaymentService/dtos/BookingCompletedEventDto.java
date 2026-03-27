@@ -4,13 +4,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-import lombok.*;
-
-@Getter
-@Setter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
+/** Kafka payload from Booking service — keep fields aligned with booking-completed-topic JSON. */
+@Data
 public class BookingCompletedEventDto {
     private Long bookingId;
     private Long passengerId;

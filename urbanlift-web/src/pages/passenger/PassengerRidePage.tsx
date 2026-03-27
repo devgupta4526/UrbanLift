@@ -7,17 +7,15 @@ import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
 import {
-  authApi,
   bookingApi,
   paymentApi,
   socketApi,
   ApiError,
   type BookingDetailDto,
-  type FareEstimateDto,
 } from '@/lib/api';
-import { SESSION_LAST_BOOKING_ID } from '@/lib/config';
 import { CAR_CLASS_LABELS, RIDE_AREA_LABEL, RIDE_PLACES, getPlace } from '@/lib/places';
 import { rideHeadline, rideSubline } from '@/lib/ride-copy';
+import { resolvePassengerSession } from '@/lib/passenger-session';
 import { getStoredPassengerId, setStoredPassengerIdentity } from '@/lib/storage';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -41,27 +39,25 @@ import {
   type PaymentInitiateValues,
   type TripRatingValues,
 } from '@/lib/validation/schemas';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  setDropPlaceId,
+  setFareResult,
+  setHubView,
+  setPickupCustom,
+  setPickupPlaceId,
+  setPayDraft,
+  setSelectedCarType,
+  setTrackedBookingId,
+} from '@/store/passengerSlice';
 
 const CAR_TYPES = ['SEDAN', 'HATCHBACK', 'SUV', 'COMPACT_SUV', 'XL'] as const;
-
-type HubView = 'home' | 'plan' | 'price' | 'ride' | 'activity' | 'account' | 'pay' | 'rate';
 
 function money(n: unknown): string {
   if (n == null) return '—';
   const x = typeof n === 'number' ? n : Number(n);
   if (!Number.isFinite(x)) return String(n);
   return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-function readSessionLastBookingId(): number | undefined {
-  try {
-    const s = sessionStorage.getItem(SESSION_LAST_BOOKING_ID);
-    if (!s) return undefined;
-    const n = Number(s);
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function ScreenBar({
@@ -114,26 +110,30 @@ function MapHero({ label }: { label: string }) {
 }
 
 export function PassengerRidePage() {
-  const lastBookingInit = useMemo(() => readSessionLastBookingId(), []);
+  const dispatch = useAppDispatch();
+  const passenger = useAppSelector((s) => s.passenger);
+  const view = passenger.hubView;
+  const trackedBookingId = passenger.trackedBookingId;
+  const pickupPlaceId = passenger.pickupPlaceId;
+  const pickupCustom = passenger.pickupCustom;
+  const dropPlaceId = passenger.dropPlaceId;
+  const fareResult = passenger.fareResult;
+  const selectedCarType = passenger.selectedCarType;
+  const payBookingId = passenger.payBookingId;
+  const payAmount = passenger.payAmount;
+
   const storedId = useMemo(() => getStoredPassengerId(), []);
 
-  const [view, setView] = useState<HubView>('home');
-  const [pickupPlaceId, setPickupPlaceId] = useState<string>('cp');
-  const [pickupCustom, setPickupCustom] = useState<{ lat: number; lng: number } | null>(null);
-  const [dropPlaceId, setDropPlaceId] = useState<string>('cyber');
   const [geoWorking, setGeoWorking] = useState(false);
 
   const [bookings, setBookings] = useState<BookingDetailDto[] | null>(null);
   const [tripsLoading, setTripsLoading] = useState(false);
-  const [fareResult, setFareResult] = useState<FareEstimateDto | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
   const [liveDetail, setLiveDetail] = useState<BookingDetailDto | null>(null);
   const [payWorking, setPayWorking] = useState(false);
   const [requestingRide, setRequestingRide] = useState(false);
   const [liveDriverPoint, setLiveDriverPoint] = useState<{ lat: number; lng: number; at: number } | null>(null);
-
-  const [trackedBookingId, setTrackedBookingId] = useState<number | null>(() => lastBookingInit ?? null);
 
   const idForm = useForm<PassengerIdFormValues>({
     resolver: zodResolver(passengerIdFormSchema),
@@ -168,12 +168,15 @@ export function PassengerRidePage() {
   const payForm = useForm<PaymentInitiateValues>({
     resolver: zodResolver(paymentInitiateSchema),
     mode: 'onBlur',
-    defaultValues: { bookingId: lastBookingInit, amount: undefined as unknown as number },
+    defaultValues: {
+      bookingId: payBookingId ?? undefined,
+      amount: payAmount ?? (undefined as unknown as number),
+    },
   });
   const ratingForm = useForm<TripRatingValues>({
     resolver: zodResolver(tripRatingSchema),
     mode: 'onBlur',
-    defaultValues: { bookingId: lastBookingInit, score: 5, comment: '' },
+    defaultValues: { bookingId: trackedBookingId ?? undefined, score: 5, comment: '' },
   });
 
   useEffect(() => {
@@ -183,24 +186,49 @@ export function PassengerRidePage() {
     }
   }, [storedId, idForm, bookForm]);
 
-  /** If a rider JWT cookie exists, sync passenger id into forms and localStorage (matches sign-in response). */
+  /** Sync rider id from JWT and/or device storage (tokens may omit passengerId claim). */
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const v = await authApi.validate();
-        if (cancelled || v.passengerId == null) return;
-        setStoredPassengerIdentity(v.passengerId, v.email);
-        idForm.setValue('passengerId', v.passengerId);
-        bookForm.setValue('passengerId', v.passengerId);
+        const session = await resolvePassengerSession();
+        if (cancelled) return;
+        setStoredPassengerIdentity(session.passengerId, session.email);
+        idForm.setValue('passengerId', session.passengerId);
+        bookForm.setValue('passengerId', session.passengerId);
       } catch {
-        /* guest */
+        /* guest — no cookie and no saved id */
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [idForm, bookForm]);
+
+  const carTypeW = fareForm.watch('carType');
+  useEffect(() => {
+    if (carTypeW) dispatch(setSelectedCarType(carTypeW));
+  }, [carTypeW, dispatch]);
+
+  useEffect(() => {
+    if (CAR_TYPES.includes(selectedCarType as (typeof CAR_TYPES)[number])) {
+      fareForm.setValue('carType', selectedCarType as (typeof CAR_TYPES)[number]);
+    }
+  }, [selectedCarType, fareForm]);
+
+  useEffect(() => {
+    if (view !== 'pay') return;
+    payForm.reset({
+      bookingId: payBookingId ?? undefined,
+      amount: payAmount ?? undefined,
+    });
+  }, [view, payBookingId, payAmount, payForm]);
+
+  useEffect(() => {
+    if (trackedBookingId != null) {
+      ratingForm.setValue('bookingId', trackedBookingId);
+    }
+  }, [trackedBookingId, ratingForm]);
 
   useEffect(() => {
     const from = pickupCoords();
@@ -237,13 +265,51 @@ export function PassengerRidePage() {
     bookForm.setValue('passengerId', v.passengerId);
     setGlobalError(null);
     setGlobalSuccess('Profile saved.');
-    setView('home');
+    dispatch(setHubView('home'));
   }
 
   function applyTrackId(id: number) {
-    sessionStorage.setItem(SESSION_LAST_BOOKING_ID, String(id));
+    dispatch(setTrackedBookingId(id));
     payForm.setValue('bookingId', id);
-    setTrackedBookingId(id);
+  }
+
+  async function openPayForBooking(bookingId: number) {
+    setGlobalError(null);
+    let amount: number | null = null;
+    if (trackedBookingId === bookingId && fareResult?.totalFare != null) {
+      const n = Number(fareResult.totalFare);
+      if (Number.isFinite(n)) amount = n;
+    }
+    if (amount == null) {
+      try {
+        const d = await bookingApi.get(bookingId);
+        const sl = d.startLocation;
+        const el = d.endLocation;
+        if (
+          sl?.latitude != null &&
+          sl.longitude != null &&
+          el?.latitude != null &&
+          el.longitude != null
+        ) {
+          const est = await paymentApi.estimateFare({
+            startLat: sl.latitude,
+            startLng: sl.longitude,
+            endLat: el.latitude,
+            endLng: el.longitude,
+            carType: selectedCarType,
+          });
+          if (est.totalFare != null) {
+            const n = Number(est.totalFare);
+            if (Number.isFinite(n)) amount = n;
+          }
+        }
+      } catch {
+        /* leave amount null; user can type */
+      }
+    }
+    dispatch(setPayDraft({ bookingId, amount }));
+    payForm.reset({ bookingId, amount: amount ?? undefined });
+    dispatch(setHubView('pay'));
   }
 
   function resolvedPassengerIdForActions(): number | null {
@@ -262,8 +328,8 @@ export function PassengerRidePage() {
     setGlobalError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setPickupCustom({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setPickupPlaceId('');
+        dispatch(setPickupCustom({ lat: pos.coords.latitude, lng: pos.coords.longitude }));
+        dispatch(setPickupPlaceId(''));
         setGeoWorking(false);
       },
       () => {
@@ -278,7 +344,7 @@ export function PassengerRidePage() {
     const pid = resolvedPassengerIdForActions();
     if (pid == null) {
       setGlobalError('Set up your rider profile first.');
-      setView('account');
+      dispatch(setHubView('account'));
       return;
     }
     const from = pickupCoords();
@@ -288,7 +354,7 @@ export function PassengerRidePage() {
       return;
     }
     const carType = fareForm.getValues('carType');
-    setFareResult(null);
+    dispatch(setFareResult(null));
     setGlobalError(null);
     try {
       const res = await paymentApi.estimateFare({
@@ -298,7 +364,7 @@ export function PassengerRidePage() {
         endLng: to.lng,
         carType,
       });
-      setFareResult(res);
+      dispatch(setFareResult(res));
       bookForm.setValue('startLat', from.lat);
       bookForm.setValue('startLng', from.lng);
       bookForm.setValue('endLat', to.lat);
@@ -307,7 +373,7 @@ export function PassengerRidePage() {
       if (res.totalFare != null && Number.isFinite(Number(res.totalFare))) {
         payForm.setValue('amount', Number(res.totalFare));
       }
-      setView('price');
+      dispatch(setHubView('price'));
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : 'Could not get a price for this route.');
     }
@@ -334,7 +400,7 @@ export function PassengerRidePage() {
           /* ignore */
         }
       }
-      setView('ride');
+      dispatch(setHubView('ride'));
       await refreshTrips(values.passengerId);
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : 'Couldn’t request this ride.');
@@ -394,7 +460,7 @@ export function PassengerRidePage() {
     const passengerId = resolvedPassengerIdForActions();
     if (passengerId == null) {
       setGlobalError('Sign in and save your profile first.');
-      setView('account');
+      dispatch(setHubView('account'));
       return;
     }
     setGlobalSuccess(null);
@@ -410,15 +476,6 @@ export function PassengerRidePage() {
       }
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : 'Could not cancel.');
-    }
-  }
-
-  async function loadLiveOnce(bookingId: number) {
-    try {
-      const d = await bookingApi.get(bookingId);
-      setLiveDetail(d);
-    } catch {
-      setLiveDetail(null);
     }
   }
 
@@ -490,7 +547,8 @@ export function PassengerRidePage() {
       await paymentApi.confirm({ paymentId: confirmParsed.data.paymentId });
       setGlobalSuccess('Payment successful. Thanks for riding with UrbanLift.');
       ratingForm.setValue('bookingId', values.bookingId);
-      setView('rate');
+      dispatch(setPayDraft({ bookingId: values.bookingId, amount: null }));
+      dispatch(setHubView('rate'));
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Payment failed.');
     } finally {
@@ -502,7 +560,7 @@ export function PassengerRidePage() {
     const passengerId = resolvedPassengerIdForActions();
     if (passengerId == null) {
       setGlobalError('Please sign in again to submit a rating.');
-      setView('account');
+      dispatch(setHubView('account'));
       return;
     }
     try {
@@ -512,7 +570,7 @@ export function PassengerRidePage() {
         comment: values.comment?.trim() || undefined,
       });
       setGlobalSuccess('Thanks! Your rating was submitted.');
-      setView('activity');
+      dispatch(setHubView('activity'));
       await refreshTrips(passengerId);
     } catch (e) {
       setGlobalError(e instanceof ApiError ? e.message : 'Could not submit rating.');
@@ -541,12 +599,12 @@ export function PassengerRidePage() {
           active={navActive}
           onNavigate={(v) => {
             setGlobalError(null);
-            if (v === 'home') setView('home');
+            if (v === 'home') dispatch(setHubView('home'));
             if (v === 'activity') {
               void refreshTrips();
-              setView('activity');
+              dispatch(setHubView('activity'));
             }
-            if (v === 'account') setView('account');
+            if (v === 'account') dispatch(setHubView('account'));
           }}
         />
       ) : null}
@@ -572,7 +630,7 @@ export function PassengerRidePage() {
                 type="button"
                 onClick={() => {
                   setGlobalError(null);
-                  setView('plan');
+                  dispatch(setHubView('plan'));
                 }}
                 className="flex w-full items-center gap-4 rounded-xl bg-zinc-950 px-4 py-4 text-left ring-1 ring-white/10 transition hover:ring-white/20"
               >
@@ -591,7 +649,7 @@ export function PassengerRidePage() {
             {resolvedPassengerIdForActions() == null ? (
               <button
                 type="button"
-                onClick={() => setView('account')}
+                onClick={() => dispatch(setHubView('account'))}
                 className="mt-4 w-full rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-100/90"
               >
                 Finish your rider profile to book a trip →
@@ -609,8 +667,8 @@ export function PassengerRidePage() {
                   key={p.id}
                   type="button"
                   onClick={() => {
-                    setDropPlaceId(p.id);
-                    setView('plan');
+                    dispatch(setDropPlaceId(p.id));
+                    dispatch(setHubView('plan'));
                   }}
                   className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-zinc-900/50 px-4 py-3 text-left transition hover:bg-zinc-800/80"
                 >
@@ -629,7 +687,7 @@ export function PassengerRidePage() {
       {/* —— Plan —— */}
       {view === 'plan' && (
         <div className="mx-auto min-h-screen max-w-4xl bg-black pb-8">
-          <ScreenBar title="Plan your ride" onBack={() => setView('home')} />
+          <ScreenBar title="Plan your ride" onBack={() => dispatch(setHubView('home'))} />
           <div className="px-4 py-6">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start lg:gap-5">
               <section className="flex min-h-0 flex-col rounded-2xl border border-white/[0.08] bg-zinc-900/35 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
@@ -653,8 +711,8 @@ export function PassengerRidePage() {
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          setPickupCustom(null);
-                          setPickupPlaceId(p.id);
+                          dispatch(setPickupCustom(null));
+                          dispatch(setPickupPlaceId(p.id));
                         }}
                         className={`flex w-full min-w-0 items-start gap-3 rounded-xl border px-3 py-3 text-left transition sm:px-4 ${
                           !pickupCustom && pickupPlaceId === p.id
@@ -682,7 +740,7 @@ export function PassengerRidePage() {
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => setDropPlaceId(p.id)}
+                        onClick={() => dispatch(setDropPlaceId(p.id))}
                         className={`flex w-full min-w-0 items-start gap-3 rounded-xl border px-3 py-3 text-left transition sm:px-4 ${
                           dropPlaceId === p.id
                             ? 'border-signal/50 bg-signal/10'
@@ -741,7 +799,7 @@ export function PassengerRidePage() {
       {/* —— Price —— */}
       {view === 'price' && (
         <div className="mx-auto min-h-screen max-w-lg">
-          <ScreenBar title="Choose your ride" onBack={() => setView('plan')} />
+          <ScreenBar title="Choose your ride" onBack={() => dispatch(setHubView('plan'))} />
           <div className="px-4 py-8">
             <div className="rounded-3xl border border-white/[0.08] bg-zinc-900/80 p-6 backdrop-blur-xl">
               <p className="text-sm text-zinc-400">{CAR_CLASS_LABELS[fareForm.watch('carType')]}</p>
@@ -779,7 +837,7 @@ export function PassengerRidePage() {
         <div className="mx-auto min-h-screen max-w-lg bg-black">
           <ScreenBar
             title="Your trip"
-            onBack={() => setView('home')}
+            onBack={() => dispatch(setHubView('home'))}
             right={
               <Link to="/passenger" className="text-sm text-zinc-400 hover:text-white">
                 Help
@@ -857,9 +915,7 @@ export function PassengerRidePage() {
                 type="button"
                 className="w-full !py-4 text-base"
                 onClick={() => {
-                  if (liveDetail?.id) payForm.setValue('bookingId', liveDetail.id);
-                  if (fareResult?.totalFare != null) payForm.setValue('amount', Number(fareResult.totalFare));
-                  setView('pay');
+                  if (liveDetail?.id) void openPayForBooking(liveDetail.id);
                 }}
               >
                 Pay for this trip
@@ -903,10 +959,15 @@ export function PassengerRidePage() {
                       type="button"
                       onClick={() => {
                         applyTrackId(b.id);
-                        if (active) {
-                          void loadLiveOnce(b.id);
-                          setView('ride');
-                        }
+                        void (async () => {
+                          try {
+                            const d = await bookingApi.get(b.id);
+                            setLiveDetail(d);
+                            dispatch(setHubView('ride'));
+                          } catch {
+                            setGlobalError('Could not load trip details.');
+                          }
+                        })();
                       }}
                       className="flex w-full flex-col gap-1 text-left"
                     >
@@ -921,6 +982,7 @@ export function PassengerRidePage() {
                         <span className="text-xs text-zinc-600">#{b.id}</span>
                       </div>
                       {active ? <p className="text-sm font-medium text-signal">Live trip</p> : null}
+                      {!active ? <p className="text-sm text-zinc-600">Tap for trip details</p> : null}
                     </button>
                     {completed && !cancelled ? (
                       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -928,10 +990,7 @@ export function PassengerRidePage() {
                           type="button"
                           variant="ghost"
                           className="w-full !min-h-10 border border-white/10 text-sm"
-                          onClick={() => {
-                            payForm.setValue('bookingId', b.id);
-                            setView('pay');
-                          }}
+                          onClick={() => void openPayForBooking(b.id)}
                         >
                           Pay
                         </UiButton>
@@ -941,7 +1000,7 @@ export function PassengerRidePage() {
                           className="w-full !min-h-10 border border-white/10 text-sm"
                           onClick={() => {
                             ratingForm.setValue('bookingId', b.id);
-                            setView('rate');
+                            dispatch(setHubView('rate'));
                           }}
                         >
                           Rate
@@ -969,7 +1028,7 @@ export function PassengerRidePage() {
       {/* —— Account —— */}
       {view === 'account' && (
         <div className="mx-auto min-h-screen max-w-lg">
-          <ScreenBar title="Account" onBack={() => setView('home')} />
+          <ScreenBar title="Account" onBack={() => dispatch(setHubView('home'))} />
           <div className="px-4 py-8">
             <p className="text-sm text-zinc-400">
               UrbanLift uses your rider ID to request trips. If you signed up on this device, it may already be saved.
@@ -993,7 +1052,7 @@ export function PassengerRidePage() {
       {/* —— Pay —— */}
       {view === 'pay' && (
         <div className="mx-auto min-h-screen max-w-lg">
-          <ScreenBar title="Payment" onBack={() => setView('activity')} />
+          <ScreenBar title="Payment" onBack={() => dispatch(setHubView('activity'))} />
           <div className="px-4 py-8">
             <p className="text-sm text-zinc-400">Secure checkout — your card is processed by our payments partner.</p>
             <form onSubmit={payForm.handleSubmit(payForRide)} className="mt-6 space-y-5" noValidate>
@@ -1014,7 +1073,7 @@ export function PassengerRidePage() {
       {/* —— Rate —— */}
       {view === 'rate' && (
         <div className="mx-auto min-h-screen max-w-lg">
-          <ScreenBar title="Rate your driver" onBack={() => setView('activity')} />
+          <ScreenBar title="Rate your driver" onBack={() => dispatch(setHubView('activity'))} />
           <div className="px-4 py-8">
             <p className="text-sm text-zinc-400">Help us improve ride quality with quick feedback.</p>
             <form onSubmit={ratingForm.handleSubmit(submitRiderRating)} className="mt-6 space-y-5" noValidate>
