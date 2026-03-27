@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +20,9 @@ import type { z } from 'zod';
 type AvailabilityFormValues = z.infer<typeof driverAvailabilityFormSchema>;
 type AcceptBookingValues = z.infer<typeof driverAcceptBookingSchema>;
 
+/** Matches rider presets in `places.ts` — use for demos when GPS is unavailable. */
+const DEMO_DRIVER_PIVOT = { lat: 28.6315, lng: 77.2167 };
+
 export function DriverConsolePage() {
   const [profile, setProfile] = useState<DriverDto | null>(null);
   const [bookings, setBookings] = useState<BookingDetailDto[] | null>(null);
@@ -27,6 +30,9 @@ export function DriverConsolePage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [busyBookingId, setBusyBookingId] = useState<number | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [liveSim, setLiveSim] = useState(false);
+  const bookingsRef = useRef<BookingDetailDto[] | null>(null);
 
   const locForm = useForm<DriverLocationValues>({
     resolver: zodResolver(driverLocationSchema),
@@ -91,38 +97,113 @@ export function DriverConsolePage() {
     if (profile?.id != null) void loadTrips(profile.id);
   }, [profile?.id]);
 
+  useEffect(() => {
+    bookingsRef.current = bookings;
+  }, [bookings]);
+
+  function activeTripForLocation(): BookingDetailDto | undefined {
+    const list = bookingsRef.current;
+    return list?.find((b) => {
+      const s = (b.bookingStatus ?? '').toUpperCase();
+      return ['SCHEDULED', 'CAB_ARRIVED', 'IN_RIDE'].includes(s);
+    });
+  }
+
+  /** Updates driver service + optional socket ping for the current active trip (live rider map). */
+  async function syncLocationToBackend(latitude: number, longitude: number) {
+    await driverApi.updateLocation({ latitude, longitude });
+    const activeBooking = activeTripForLocation();
+    if (activeBooking?.id && profile?.id) {
+      await socketApi.publishLocation({
+        bookingId: activeBooking.id,
+        driverId: profile.id,
+        latitude,
+        longitude,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
   async function submitLocation(values: DriverLocationValues) {
     setBanner(null);
     try {
-      await driverApi.updateLocation({ latitude: values.latitude, longitude: values.longitude });
-      const activeBooking = bookings?.find((b) => {
-        const s = (b.bookingStatus ?? '').toUpperCase();
-        return ['SCHEDULED', 'CAB_ARRIVED', 'IN_RIDE'].includes(s);
-      });
-      if (activeBooking?.id && profile?.id) {
-        await socketApi.publishLocation({
-          bookingId: activeBooking.id,
-          driverId: profile.id,
-          latitude: values.latitude,
-          longitude: values.longitude,
-          timestamp: Date.now(),
-        });
-      }
+      await syncLocationToBackend(values.latitude, values.longitude);
       setBanner({ type: 'success', text: 'Location updated. Riders can find you nearby.' });
     } catch (e) {
       setBanner({ type: 'error', text: e instanceof ApiError ? e.message : 'Location update failed.' });
     }
   }
 
+  function applyDemoPivot() {
+    locForm.setValue('latitude', DEMO_DRIVER_PIVOT.lat, { shouldValidate: true });
+    locForm.setValue('longitude', DEMO_DRIVER_PIVOT.lng, { shouldValidate: true });
+    setBanner({ type: 'info', text: 'Demo coordinates applied (Connaught Place area). Tap Update or start Live sim.' });
+  }
+
+  function readGeolocation() {
+    if (!navigator.geolocation) {
+      setBanner({ type: 'error', text: 'Geolocation is not available in this browser.' });
+      return;
+    }
+    setGeoBusy(true);
+    setBanner(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        locForm.setValue('latitude', lat, { shouldValidate: true });
+        locForm.setValue('longitude', lng, { shouldValidate: true });
+        availForm.setValue('lat', String(lat));
+        availForm.setValue('lng', String(lng));
+        setGeoBusy(false);
+        setBanner({ type: 'success', text: 'GPS position filled. Save with Update on map or Apply when going online.' });
+      },
+      () => {
+        setGeoBusy(false);
+        setBanner({
+          type: 'error',
+          text: 'Could not read GPS. Use demo location or enter lat/lng manually.',
+        });
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 }
+    );
+  }
+
+  useEffect(() => {
+    if (!liveSim) return;
+    if (profile?.id == null) {
+      setLiveSim(false);
+      return;
+    }
+    const tick = async () => {
+      const cur = locForm.getValues();
+      const jitter = 0.00035;
+      const latitude = cur.latitude + (Math.random() - 0.5) * jitter * 2;
+      const longitude = cur.longitude + (Math.random() - 0.5) * jitter * 2;
+      locForm.setValue('latitude', Number(latitude.toFixed(6)));
+      locForm.setValue('longitude', Number(longitude.toFixed(6)));
+      try {
+        await syncLocationToBackend(latitude, longitude);
+      } catch {
+        /* keep sim running; user sees banner on manual submit */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 4_000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- locForm stable; re-init when toggling sim / profile
+  }, [liveSim, profile?.id]);
+
   async function submitAvailability(data: AvailabilityFormValues) {
     setBanner(null);
-    const la = data.lat?.trim() ? Number(data.lat) : undefined;
-    const ln = data.lng?.trim() ? Number(data.lng) : undefined;
+    const fromForm = locForm.getValues();
+    const la = data.lat?.trim() ? Number(data.lat) : fromForm.latitude;
+    const ln = data.lng?.trim() ? Number(data.lng) : fromForm.longitude;
     try {
       await driverApi.setAvailability(
         { available: data.available },
-        la !== undefined && ln !== undefined ? la : undefined,
-        la !== undefined && ln !== undefined ? ln : undefined
+        Number.isFinite(la) && Number.isFinite(ln) ? la : undefined,
+        Number.isFinite(la) && Number.isFinite(ln) ? ln : undefined
       );
       setBanner({
         type: 'success',
@@ -210,9 +291,14 @@ export function DriverConsolePage() {
           <Link to="/" className="absolute left-4 top-4 text-sm text-zinc-400 hover:text-white">
             ← Exit
           </Link>
-          <Link to="/driver" className="absolute right-4 top-4 text-sm text-zinc-400 hover:text-white">
-            Account
-          </Link>
+          <div className="absolute right-4 top-4 flex gap-4 text-sm">
+            <Link to="/qa" className="text-emerald-400/90 hover:text-emerald-200">
+              QA
+            </Link>
+            <Link to="/driver" className="text-zinc-400 hover:text-white">
+              Account
+            </Link>
+          </div>
           <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">UrbanLift Driver</p>
           <p className="font-display text-2xl font-bold text-white">
             {loadingProfile ? '…' : profile ? `Hi, ${profile.firstName ?? 'partner'}` : 'Welcome'}
@@ -297,12 +383,40 @@ export function DriverConsolePage() {
 
         <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/50 p-5">
           <p className="text-sm font-semibold text-white">Your location</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            While a trip is <span className="text-zinc-400">Scheduled</span>, <span className="text-zinc-400">Arrived</span>, or{' '}
+            <span className="text-zinc-400">In ride</span>, updates are also pushed to the rider&apos;s live map (socket).
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <UiButton type="button" variant="ghost" className="!py-2 !text-xs border border-white/10" onClick={() => readGeolocation()} loading={geoBusy}>
+              Use GPS
+            </UiButton>
+            <UiButton type="button" variant="ghost" className="!py-2 !text-xs border border-amber-500/30 text-amber-200" onClick={() => applyDemoPivot()}>
+              Demo lat/lng
+            </UiButton>
+            <UiButton
+              type="button"
+              variant="ghost"
+              className={`!py-2 !text-xs border ${liveSim ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200' : 'border-white/10'}`}
+              onClick={() => {
+                setLiveSim((v) => !v);
+                setBanner(
+                  !liveSim
+                    ? { type: 'info', text: 'Live sim: sending a new position every 4s (for testing without a real GPS).' }
+                    : null
+                );
+              }}
+              disabled={profile?.id == null}
+            >
+              {liveSim ? 'Stop live sim' : 'Start live sim (demo)'}
+            </UiButton>
+          </div>
           <form onSubmit={locForm.handleSubmit(submitLocation)} className="mt-4 grid grid-cols-2 gap-3" noValidate>
             <UiField label="Latitude" id="dlat" error={locErr.latitude?.message}>
-              <UiInput id="dlat" step="any" {...locForm.register('latitude')} />
+              <UiInput id="dlat" step="any" {...locForm.register('latitude', { valueAsNumber: true })} />
             </UiField>
             <UiField label="Longitude" id="dlng" error={locErr.longitude?.message}>
-              <UiInput id="dlng" step="any" {...locForm.register('longitude')} />
+              <UiInput id="dlng" step="any" {...locForm.register('longitude', { valueAsNumber: true })} />
             </UiField>
             <div className="col-span-2">
               <UiButton type="submit" variant="ghost" className="w-full border border-white/10">

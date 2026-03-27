@@ -380,8 +380,11 @@ export function PassengerRidePage() {
     try {
       const list = await bookingApi.listByPassenger(pid);
       setBookings(list);
-    } catch {
+    } catch (e) {
       setBookings([]);
+      if (e instanceof ApiError) {
+        setGlobalError(`Could not load trips: ${e.message}`);
+      }
     } finally {
       setTripsLoading(false);
     }
@@ -625,96 +628,112 @@ export function PassengerRidePage() {
 
       {/* —— Plan —— */}
       {view === 'plan' && (
-        <div className="mx-auto min-h-screen max-w-lg bg-black">
+        <div className="mx-auto min-h-screen max-w-4xl bg-black pb-8">
           <ScreenBar title="Plan your ride" onBack={() => setView('home')} />
-          <div className="space-y-6 px-4 py-6">
-            <section>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Pickup</p>
-              <button
-                type="button"
-                onClick={requestCurrentLocation}
-                disabled={geoWorking}
-                className="mb-3 flex w-full items-center gap-3 rounded-xl border border-signal/30 bg-signal/10 px-4 py-3 text-left transition hover:bg-signal/15 disabled:opacity-50"
-              >
-                <span className="text-xl">⌖</span>
-                <div>
-                  <p className="font-semibold text-white">{geoWorking ? 'Locating you…' : 'Current location'}</p>
-                  <p className="text-xs text-zinc-400">Best for door-to-door pickup</p>
+          <div className="px-4 py-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start lg:gap-5">
+              <section className="flex min-h-0 flex-col rounded-2xl border border-white/[0.08] bg-zinc-900/35 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Pickup</p>
+                <button
+                  type="button"
+                  onClick={requestCurrentLocation}
+                  disabled={geoWorking}
+                  className="mb-3 flex w-full min-w-0 items-start gap-3 rounded-xl border border-signal/30 bg-signal/10 px-3 py-3 text-left transition hover:bg-signal/15 disabled:opacity-50 sm:px-4"
+                >
+                  <span className="shrink-0 text-xl leading-none">⌖</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-white">{geoWorking ? 'Locating you…' : 'Current location'}</p>
+                    <p className="text-xs text-zinc-400">Uses your device GPS when allowed</p>
+                  </div>
+                </button>
+                <div className="min-h-0 max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                  <div className="space-y-2 pb-1">
+                    {RIDE_PLACES.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setPickupCustom(null);
+                          setPickupPlaceId(p.id);
+                        }}
+                        className={`flex w-full min-w-0 items-start gap-3 rounded-xl border px-3 py-3 text-left transition sm:px-4 ${
+                          !pickupCustom && pickupPlaceId === p.id
+                            ? 'border-white/25 bg-white/[0.08]'
+                            : 'border-white/[0.06] bg-zinc-950/50 hover:bg-zinc-800/60'
+                        }`}
+                      >
+                        <span className="mt-0.5 shrink-0 text-zinc-500">{!pickupCustom && pickupPlaceId === p.id ? '●' : '○'}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-medium leading-snug text-zinc-100">{p.label}</p>
+                          <p className="mt-0.5 break-words text-xs leading-snug text-zinc-500">{p.area}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </button>
-              <div className="space-y-2">
-                {RIDE_PLACES.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setPickupCustom(null);
-                      setPickupPlaceId(p.id);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
-                      !pickupCustom && pickupPlaceId === p.id
-                        ? 'border-white/25 bg-white/[0.08]'
-                        : 'border-white/[0.06] bg-zinc-900/40 hover:bg-zinc-800/60'
-                    }`}
-                  >
-                    <span className="text-zinc-600">○</span>
-                    <div>
-                      <p className="font-medium text-zinc-100">{p.label}</p>
-                      <p className="text-xs text-zinc-500">{p.area}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
+              </section>
 
-            <section>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Dropoff</p>
-              <div className="space-y-2">
-                {RIDE_PLACES.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setDropPlaceId(p.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
-                      dropPlaceId === p.id
-                        ? 'border-signal/40 bg-signal/10'
-                        : 'border-white/[0.06] bg-zinc-900/40 hover:bg-zinc-800/60'
-                    }`}
-                  >
-                    <span className="text-signal/80">◆</span>
-                    <div>
-                      <p className="font-medium text-zinc-100">{p.label}</p>
-                      <p className="text-xs text-zinc-500">{p.area}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
+              <section className="flex min-h-0 flex-col rounded-2xl border border-white/[0.08] bg-zinc-900/35 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Drop-off</p>
+                <p className="mb-2 text-[11px] text-zinc-600">Choose where you&apos;re headed — scroll if the list is long.</p>
+                <div className="min-h-0 max-h-[min(52vh,420px)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+                  <div className="space-y-2 pb-1">
+                    {RIDE_PLACES.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setDropPlaceId(p.id)}
+                        className={`flex w-full min-w-0 items-start gap-3 rounded-xl border px-3 py-3 text-left transition sm:px-4 ${
+                          dropPlaceId === p.id
+                            ? 'border-signal/50 bg-signal/10'
+                            : 'border-white/[0.06] bg-zinc-950/50 hover:bg-zinc-800/60'
+                        }`}
+                      >
+                        <span className="mt-0.5 shrink-0 text-signal/80">{dropPlaceId === p.id ? '◆' : '◇'}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-medium leading-snug text-zinc-100">{p.label}</p>
+                          <p className="mt-0.5 break-words text-xs leading-snug text-zinc-500">{p.area}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </div>
 
-            <section>
+            <section className="mt-8 rounded-2xl border border-white/[0.08] bg-zinc-900/35 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Ride options</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2 pt-0.5 [scrollbar-width:thin]">
                 {CAR_TYPES.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => fareForm.setValue('carType', c)}
-                    className={`shrink-0 rounded-2xl px-4 py-3 text-left ring-1 transition ${
+                    className={`snap-start shrink-0 rounded-2xl px-4 py-3 text-left ring-1 transition sm:min-w-[9.5rem] ${
                       fareForm.watch('carType') === c
                         ? 'bg-white text-black ring-white'
-                        : 'bg-zinc-900/80 text-zinc-300 ring-white/10 hover:ring-white/20'
+                        : 'bg-zinc-950/80 text-zinc-300 ring-white/10 hover:ring-white/20'
                     }`}
                   >
-                    <p className="text-sm font-semibold">{CAR_CLASS_LABELS[c]}</p>
-                    <p className="text-[10px] uppercase text-zinc-500">{c.replace('_', ' ')}</p>
+                    <p className="text-sm font-semibold leading-tight">{CAR_CLASS_LABELS[c]}</p>
+                    <p className="mt-0.5 text-[10px] uppercase leading-tight tracking-wide text-zinc-500">
+                      {c.replace('_', ' ')}
+                    </p>
                   </button>
                 ))}
               </div>
             </section>
 
-            <UiButton type="button" className="w-full !py-4 text-base" onClick={() => void computeFareAndGo()}>
+            <UiButton type="button" className="mt-8 w-full !py-4 text-base" onClick={() => void computeFareAndGo()}>
               See price
             </UiButton>
+
+            <p className="mt-4 text-center text-[11px] text-zinc-600">
+              Full API checklists:{' '}
+              <Link className="text-signal hover:underline" to="/qa">
+                QA hub
+              </Link>
+            </p>
           </div>
         </div>
       )}

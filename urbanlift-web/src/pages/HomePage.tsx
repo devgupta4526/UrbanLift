@@ -42,6 +42,9 @@ export function HomePage() {
             <Link to="/driver" className="text-zinc-500 underline-offset-4 hover:text-white hover:underline">
               Driver sign in
             </Link>
+            <Link to="/qa" className="text-emerald-500/90 underline-offset-4 hover:text-emerald-300 hover:underline">
+              Automated QA hub
+            </Link>
           </div>
         </header>
         <footer className="mt-auto border-t border-white/[0.06] pt-8 text-center text-xs text-zinc-600">

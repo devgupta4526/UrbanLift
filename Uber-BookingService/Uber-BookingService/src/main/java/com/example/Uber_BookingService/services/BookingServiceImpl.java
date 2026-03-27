@@ -2,7 +2,19 @@ package com.example.Uber_BookingService.services;
 
 import com.example.Uber_BookingService.apis.LocationServiceApi;
 import com.example.Uber_BookingService.apis.UberSocketApi;
-import com.example.Uber_BookingService.dtos.*;
+import com.example.Uber_BookingService.dtos.DriverLocationDto;
+import com.example.Uber_BookingService.dtos.BookingCompletedEventDto;
+import com.example.Uber_BookingService.dtos.BookingParticipantDto;
+import com.example.Uber_BookingService.dtos.CreateBookingDto;
+import com.example.Uber_BookingService.dtos.CreateBookingResponseDto;
+import com.example.Uber_BookingService.dtos.BookingDetailDto;
+import com.example.Uber_BookingService.dtos.NearbyDriversRequestDto;
+import com.example.Uber_BookingService.dtos.NotificationEventDto;
+import com.example.Uber_BookingService.dtos.RideRequestDto;
+import com.example.Uber_BookingService.dtos.TripRatingRequestDto;
+import com.example.Uber_BookingService.dtos.TripRatingSummaryDto;
+import com.example.Uber_BookingService.dtos.UpdateBookingRequestDto;
+import com.example.Uber_BookingService.dtos.UpdateBookingResponseDto;
 import com.example.Uber_BookingService.locking.LockHandle;
 import com.example.Uber_BookingService.locking.RedlockManager;
 import com.example.Uber_BookingService.producers.KafkaProducerService;
@@ -335,8 +347,8 @@ public class BookingServiceImpl implements BookingService {
         );
         return UpdateBookingResponseDto.builder()
                 .bookingId(bookingId)
-                .status(booking.getBookingStatus())
-                .driver(Optional.ofNullable(booking.getDriver()))
+                .status(booking.getBookingStatus().name())
+                .driver(toParticipantDto(booking.getDriver()))
                 .build();
     }
 
@@ -395,8 +407,8 @@ public class BookingServiceImpl implements BookingService {
 
         return UpdateBookingResponseDto.builder()
                 .bookingId(bookingId)
-                .status(updated.getBookingStatus())
-                .driver(Optional.ofNullable(updated.getDriver()))
+                .status(updated.getBookingStatus().name())
+                .driver(toParticipantDto(updated.getDriver()))
                 .build();
     }
 
@@ -461,10 +473,36 @@ public class BookingServiceImpl implements BookingService {
                 .startTime(b.getStartTime())
                 .endTime(b.getEndTime())
                 .totalDistance(b.getTotalDistance())
-                .passenger(Optional.ofNullable(b.getPassenger()))
-                .driver(Optional.ofNullable(b.getDriver()))
+                .passenger(toParticipantDto(b.getPassenger()))
+                .driver(toParticipantDto(b.getDriver()))
                 .startLocation(b.getStartLocation())
                 .endLocation(b.getEndLocation())
+                .build();
+    }
+
+    private static BookingParticipantDto toParticipantDto(Passenger p) {
+        if (p == null) {
+            return null;
+        }
+        return BookingParticipantDto.builder()
+                .id(p.getId())
+                .firstName(p.getFirstName())
+                .lastName(p.getLastName())
+                .email(p.getEmail())
+                .phoneNumber(p.getPhoneNumber())
+                .build();
+    }
+
+    private static BookingParticipantDto toParticipantDto(Driver d) {
+        if (d == null) {
+            return null;
+        }
+        return BookingParticipantDto.builder()
+                .id(d.getId())
+                .firstName(d.getFirstName())
+                .lastName(d.getLastName())
+                .email(d.getEmail())
+                .phoneNumber(d.getPhoneNumber())
                 .build();
     }
 
