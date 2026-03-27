@@ -53,6 +53,9 @@ public class KafkaConfig {
     public ConsumerFactory<String, BookingCompletedEventDto> consumerFactory() {
         JsonDeserializer<BookingCompletedEventDto> deserializer =
                 new JsonDeserializer<>(BookingCompletedEventDto.class);
+        /* Booking service sends Spring JsonSerializer type headers pointing at its own DTO class;
+           Payment service must ignore them and bind the JSON body to our DTO. */
+        deserializer.setUseTypeHeaders(false);
         deserializer.addTrustedPackages("*");
 
         Map<String, Object> props = new HashMap<>();

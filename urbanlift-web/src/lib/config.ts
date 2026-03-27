@@ -19,5 +19,3 @@ export const SOCKET_API_BASE =
 export const LS_PASSENGER_ID = 'urbanlift.passengerId';
 export const LS_PASSENGER_EMAIL = 'urbanlift.passengerEmail';
 
-/** sessionStorage — last created booking for quick “track trip”. */
-export const SESSION_LAST_BOOKING_ID = 'urbanlift.lastBookingId';

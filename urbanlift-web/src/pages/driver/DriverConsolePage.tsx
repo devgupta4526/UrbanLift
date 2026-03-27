@@ -6,7 +6,7 @@ import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
 import { bookingApi, driverApi, socketApi, ApiError, type BookingDetailDto, type DriverDto } from '@/lib/api';
-import { RIDE_AREA_LABEL } from '@/lib/places';
+import { DEMO_STREAM_PRESETS, RIDE_AREA_LABEL } from '@/lib/places';
 import { driverTripStageLabel } from '@/lib/ride-copy';
 import { driverStatusAction, formatBookingPerson } from '@/lib/booking-flow';
 import {
@@ -20,12 +20,11 @@ import type { z } from 'zod';
 type AvailabilityFormValues = z.infer<typeof driverAvailabilityFormSchema>;
 type AcceptBookingValues = z.infer<typeof driverAcceptBookingSchema>;
 
-/** Matches rider presets in `places.ts` — use for demos when GPS is unavailable. */
-const DEMO_DRIVER_PIVOT = { lat: 28.6315, lng: 77.2167 };
-
 export function DriverConsolePage() {
   const [profile, setProfile] = useState<DriverDto | null>(null);
   const [bookings, setBookings] = useState<BookingDetailDto[] | null>(null);
+  const [openPool, setOpenPool] = useState<BookingDetailDto[] | null>(null);
+  const [loadingPool, setLoadingPool] = useState(false);
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingTrips, setLoadingTrips] = useState(false);
@@ -89,8 +88,30 @@ export function DriverConsolePage() {
     }
   }
 
+  async function loadOpenPool() {
+    setLoadingPool(true);
+    try {
+      const list = await bookingApi.listOpenAssigning();
+      setOpenPool(list);
+    } catch (e) {
+      setOpenPool([]);
+      setBanner({
+        type: 'error',
+        text: e instanceof ApiError ? e.message : 'Could not load nearby ride requests.',
+      });
+    } finally {
+      setLoadingPool(false);
+    }
+  }
+
   useEffect(() => {
     void loadProfile();
+  }, []);
+
+  useEffect(() => {
+    void loadOpenPool();
+    const id = window.setInterval(() => void loadOpenPool(), 12_000);
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -134,10 +155,10 @@ export function DriverConsolePage() {
     }
   }
 
-  function applyDemoPivot() {
-    locForm.setValue('latitude', DEMO_DRIVER_PIVOT.lat, { shouldValidate: true });
-    locForm.setValue('longitude', DEMO_DRIVER_PIVOT.lng, { shouldValidate: true });
-    setBanner({ type: 'info', text: 'Demo coordinates applied (Connaught Place area). Tap Update or start Live sim.' });
+  function applyDemoCoords(lat: number, lng: number, label: string) {
+    locForm.setValue('latitude', lat, { shouldValidate: true });
+    locForm.setValue('longitude', lng, { shouldValidate: true });
+    setBanner({ type: 'info', text: `Demo: ${label}. Tap Update on map or start Live sim.` });
   }
 
   function readGeolocation() {
@@ -215,6 +236,31 @@ export function DriverConsolePage() {
     }
   }
 
+  async function acceptPoolBooking(bookingId: number) {
+    setBanner(null);
+    if (profile?.id == null) {
+      setBanner({ type: 'error', text: 'Load your profile first.' });
+      return;
+    }
+    setBusyBookingId(bookingId);
+    try {
+      await bookingApi.update(bookingId, {
+        status: 'SCHEDULED',
+        driverId: profile.id,
+      });
+      setBanner({ type: 'success', text: 'You accepted this ride. It appears under Your trips.' });
+      await loadTrips(profile.id);
+      await loadOpenPool();
+    } catch (e) {
+      setBanner({
+        type: 'error',
+        text: e instanceof ApiError ? e.message : 'Could not accept this ride (it may have been taken).',
+      });
+    } finally {
+      setBusyBookingId(null);
+    }
+  }
+
   async function submitAcceptRide(values: AcceptBookingValues) {
     setBanner(null);
     if (profile?.id == null) {
@@ -229,6 +275,7 @@ export function DriverConsolePage() {
       setBanner({ type: 'success', text: 'Trip added to your queue.' });
       acceptForm.reset({ bookingId: undefined });
       await loadTrips(profile.id);
+      await loadOpenPool();
     } catch (e) {
       setBanner({
         type: 'error',
@@ -348,6 +395,56 @@ export function DriverConsolePage() {
           </form>
         </section>
 
+        <section className="mt-6 rounded-3xl border border-cyan-500/25 bg-cyan-500/5 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-cyan-100">Open ride requests</p>
+            <button
+              type="button"
+              onClick={() => void loadOpenPool()}
+              className="text-xs text-cyan-400 hover:underline disabled:opacity-40"
+              disabled={loadingPool}
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            Trips waiting for a driver (assigning). Tap Accept to add to your queue — no trip code needed.
+          </p>
+          {!openPool?.length && !loadingPool ? (
+            <p className="mt-4 text-center text-sm text-zinc-500">No open requests right now.</p>
+          ) : null}
+          <ul className="mt-4 space-y-3">
+            {openPool?.map((b) => {
+              const pax = formatBookingPerson(b.passenger);
+              return (
+                <li
+                  key={b.id}
+                  className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-black/30 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white">{pax || 'Rider'}</p>
+                    <p className="text-[11px] text-zinc-500">
+                      Trip #{b.id}
+                      {b.startLocation?.latitude != null
+                        ? ` · pickup ${b.startLocation.latitude.toFixed(3)},${b.startLocation.longitude?.toFixed(3) ?? '—'}`
+                        : ''}
+                    </p>
+                  </div>
+                  <UiButton
+                    type="button"
+                    className="w-full shrink-0 !py-2 sm:w-auto sm:!px-5"
+                    loading={busyBookingId === b.id}
+                    disabled={profile?.id == null || (busyBookingId != null && busyBookingId !== b.id)}
+                    onClick={() => void acceptPoolBooking(b.id)}
+                  >
+                    Accept
+                  </UiButton>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
         <section className="mt-6 rounded-3xl border border-white/[0.08] bg-zinc-900/50 p-5">
           <p className="text-sm font-semibold text-white">Enter trip code</p>
           <p className="mt-1 text-xs text-zinc-500">Your rider shares this after booking — same as their trip reference.</p>
@@ -391,9 +488,17 @@ export function DriverConsolePage() {
             <UiButton type="button" variant="ghost" className="!py-2 !text-xs border border-white/10" onClick={() => readGeolocation()} loading={geoBusy}>
               Use GPS
             </UiButton>
-            <UiButton type="button" variant="ghost" className="!py-2 !text-xs border border-amber-500/30 text-amber-200" onClick={() => applyDemoPivot()}>
-              Demo lat/lng
-            </UiButton>
+            {DEMO_STREAM_PRESETS.map((d) => (
+              <UiButton
+                key={d.id}
+                type="button"
+                variant="ghost"
+                className="!py-2 !text-xs border border-amber-500/30 text-amber-200"
+                onClick={() => applyDemoCoords(d.lat, d.lng, d.label)}
+              >
+                {d.label}
+              </UiButton>
+            ))}
             <UiButton
               type="button"
               variant="ghost"

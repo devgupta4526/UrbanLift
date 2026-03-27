@@ -18,6 +18,9 @@ public interface BookingService {
 
     List<BookingDetailDto> getBookingsByDriverId(Long driverId);
 
+    /** Rides waiting for a driver (ASSIGNING_DRIVER, no driver assigned) — driver-console pool. */
+    List<BookingDetailDto> getOpenAssigningBookings();
+
     UpdateBookingResponseDto updateBookingStatus(Long bookingId, String status);
 
     UpdateBookingResponseDto cancelBooking(Long bookingId);

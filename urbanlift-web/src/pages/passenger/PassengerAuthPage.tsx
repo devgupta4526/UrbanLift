@@ -7,6 +7,7 @@ import { Alert } from '@/components/Alert';
 import { UiButton } from '@/components/UiButton';
 import { UiField, UiInput } from '@/components/UiField';
 import { authApi, ApiError } from '@/lib/api';
+import { resolvePassengerSession } from '@/lib/passenger-session';
 import { setStoredPassengerIdentity } from '@/lib/storage';
 import { passengerSignupSchema, signinSchema, type PassengerSignupValues, type SigninValues } from '@/lib/validation/schemas';
 
@@ -89,13 +90,12 @@ export function PassengerAuthPage() {
     setSessionLoading(true);
     setSessionMsg(null);
     try {
-      const res = await authApi.validate();
-      if (res.passengerId != null) {
-        setStoredPassengerIdentity(res.passengerId, res.email);
-      }
+      const session = await resolvePassengerSession();
+      setStoredPassengerIdentity(session.passengerId, session.email);
+      const extra = session.note ? ` ${session.note}` : '';
       setSessionMsg({
         type: 'success',
-        text: res.success ? 'You are signed in.' : 'Something went wrong.',
+        text: `You are signed in as rider #${session.passengerId}.${extra}`,
       });
     } catch (err) {
       setSessionMsg({

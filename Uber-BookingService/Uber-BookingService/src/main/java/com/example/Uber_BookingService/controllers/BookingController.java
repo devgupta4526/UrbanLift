@@ -29,20 +29,9 @@ public class BookingController {
         return new ResponseEntity<>(bookingService.createBooking(createBookingDto, idempotencyKey), HttpStatus.CREATED);
     }
 
-    @GetMapping("/{bookingId}/passenger-id")
-    public ResponseEntity<Map<String, Long>> getPassengerIdForBooking(@PathVariable Long bookingId) {
-        Long passengerId = bookingService.getPassengerIdForBooking(bookingId);
-        return ResponseEntity.ok(Map.of("passengerId", passengerId));
-    }
-
-    @GetMapping("/{bookingId}")
-    public ResponseEntity<BookingDetailDto> getBooking(@PathVariable Long bookingId) {
-        return ResponseEntity.ok(bookingService.getBookingById(bookingId));
-    }
-
-    @PostMapping("/{bookingId}")
-    public ResponseEntity<UpdateBookingResponseDto> updateBooking(@RequestBody UpdateBookingRequestDto requestDto, @PathVariable Long bookingId) {
-        return new ResponseEntity<>(bookingService.updateBooking(requestDto, bookingId), HttpStatus.OK);
+    @GetMapping("/open-assigning")
+    public ResponseEntity<List<BookingDetailDto>> getOpenAssigningBookings() {
+        return ResponseEntity.ok(bookingService.getOpenAssigningBookings());
     }
 
     @GetMapping("/passenger/{passengerId}")
@@ -55,29 +44,45 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getBookingsByDriverId(driverId));
     }
 
-    @PutMapping("/{bookingId}/status")
+    @GetMapping("/{bookingId:\\d+}/passenger-id")
+    public ResponseEntity<Map<String, Long>> getPassengerIdForBooking(@PathVariable Long bookingId) {
+        Long passengerId = bookingService.getPassengerIdForBooking(bookingId);
+        return ResponseEntity.ok(Map.of("passengerId", passengerId));
+    }
+
+    @GetMapping("/{bookingId:\\d+}")
+    public ResponseEntity<BookingDetailDto> getBooking(@PathVariable Long bookingId) {
+        return ResponseEntity.ok(bookingService.getBookingById(bookingId));
+    }
+
+    @PostMapping("/{bookingId:\\d+}")
+    public ResponseEntity<UpdateBookingResponseDto> updateBooking(@RequestBody UpdateBookingRequestDto requestDto, @PathVariable Long bookingId) {
+        return new ResponseEntity<>(bookingService.updateBooking(requestDto, bookingId), HttpStatus.OK);
+    }
+
+    @PutMapping("/{bookingId:\\d+}/status")
     public ResponseEntity<UpdateBookingResponseDto> updateStatus(@PathVariable Long bookingId, @RequestParam String status) {
         return ResponseEntity.ok(bookingService.updateBookingStatus(bookingId, status));
     }
 
-    @PostMapping("/{bookingId}/cancel")
+    @PostMapping("/{bookingId:\\d+}/cancel")
     public ResponseEntity<UpdateBookingResponseDto> cancelBooking(@PathVariable Long bookingId) {
         return ResponseEntity.ok(bookingService.cancelBooking(bookingId));
     }
 
-    @PostMapping("/{bookingId}/rating/driver")
+    @PostMapping("/{bookingId:\\d+}/rating/driver")
     public ResponseEntity<Void> rateDriver(@PathVariable Long bookingId, @RequestBody @jakarta.validation.Valid TripRatingRequestDto request) {
         bookingService.rateDriver(bookingId, request);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/{bookingId}/rating/passenger")
+    @PostMapping("/{bookingId:\\d+}/rating/passenger")
     public ResponseEntity<Void> ratePassenger(@PathVariable Long bookingId, @RequestBody @jakarta.validation.Valid TripRatingRequestDto request) {
         bookingService.ratePassenger(bookingId, request);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{bookingId}/rating")
+    @GetMapping("/{bookingId:\\d+}/rating")
     public ResponseEntity<TripRatingSummaryDto> getTripRatings(@PathVariable Long bookingId) {
         return ResponseEntity.ok(bookingService.getTripRatings(bookingId));
     }
