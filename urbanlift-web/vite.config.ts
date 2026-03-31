@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   const useProxy = env.VITE_USE_PROXY !== 'false';
 
   return {
+    define: {
+      global: "window",   // 👈 ADD THIS HERE
+    },
     resolve: {
       alias: { '@': path.resolve(__dirname, 'src') },
     },

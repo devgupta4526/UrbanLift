@@ -33,6 +33,6 @@ eureka:
 urbanlift:
   lock:
     booking-create:
-      prefix: urbanlift:lock:booking:create:
+      prefix: "urbanlift:lock:booking:create:"
       lease-ms: 15000
       wait-ms: 3000
