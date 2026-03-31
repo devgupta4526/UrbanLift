@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c1019f1a-023f-475d-832a-60a819a6f7b4" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Uber-BookingService/Uber-BookingService/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/Uber-BookingService/Uber-BookingService/src/main/resources/application.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Uber-EntityService/Uber-EntityService/src/main/resources/db/migration/V11__booking_idempotency_key.sql" beforeDir="false" afterPath="$PROJECT_DIR$/Uber-EntityService/Uber-EntityService/src/main/resources/db/migration/V11__booking_idempotency_key.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService/src/main/java/com/example/Uber_PaymentService/UberPaymentServiceApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService/src/main/java/com/example/Uber_PaymentService/UberPaymentServiceApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService/src/main/java/com/example/Uber_PaymentService/services/PaymentGatewayService.java" beforeDir="false" afterPath="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService/src/main/java/com/example/Uber_PaymentService/services/PaymentGatewayService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/urbanlift-web/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/urbanlift-web/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/urbanlift-web/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/urbanlift-web/vite.config.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$/Uber-API-Gateway/Uber-API-Gateway">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-AuthService/Uber-AuthService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-BookingService/Uber-BookingService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-DriverService/Uber-DriverService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-EntityService/Uber-EntityService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-LocationService/Uber-LocationService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-NotificationService/Uber-NotificationService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-PaymentService/Uber-PaymentService">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-ServiceDiscovery-Eureka/Uber-ServiceDiscovery-Eureka">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/Uber-SocketKafkaService/Uber-SocketKafkaService">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand />
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="3BVtlJCZ9XSDmkOaTHPetkFa8ys" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build Uber-API-Gateway.executor": "Run",
+    "Gradle.Build Uber-AuthService.executor": "Run",
+    "Gradle.Build Uber-BookingService.executor": "Run",
+    "Gradle.Build Uber-DriverService.executor": "Run",
+    "Gradle.Build Uber-EntityService.executor": "Run",
+    "Gradle.Build Uber-LocationService.executor": "Run",
+    "Gradle.Build Uber-NotificationService.executor": "Run",
+    "Gradle.Build Uber-PaymentService.executor": "Run",
+    "Gradle.Build Uber-ServiceDiscovery-Eureka.executor": "Run",
+    "Gradle.Build Uber-SocketKafkaService.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "Spring Boot.Application.executor": "Run",
+    "Spring Boot.UberApiGatewayApplication.executor": "Run",
+    "Spring Boot.UberBookingServiceApplication.executor": "Run",
+    "Spring Boot.UberDriverServiceApplication.executor": "Run",
+    "Spring Boot.UberEntityServiceApplication.executor": "Run",
+    "Spring Boot.UberLocationServiceApplication.executor": "Run",
+    "Spring Boot.UberNotificationServiceApplication.executor": "Run",
+    "Spring Boot.UberPaymentServiceApplication.executor": "Run",
+    "Spring Boot.UberServiceDiscoveryEurekaApplication.executor": "Run",
+    "Spring Boot.UberSocketKafkaServiceApplication.executor": "Run",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "E:/Development/Uber/Uber App"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.31033.145" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c1019f1a-023f-475d-832a-60a819a6f7b4" name="Changes" comment="" />
+      <created>1774586216635</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1774586216635</updated>
+    </task>
+    <servers />
+  </component>
+</project>
