@@ -16,6 +16,9 @@ public class WalletService {
     private WalletRepository walletRepository;
 
     public WalletBalanceDto getBalance(Long userId, String userType) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
         UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
                 .orElseGet(() -> createWallet(userId, type));
@@ -27,6 +30,9 @@ public class WalletService {
     }
 
     public void addMoney(Long userId, String userType, double amount) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
+        }
         UserType type = UserType.valueOf(userType.toUpperCase());
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
                 .orElseGet(() -> createWallet(userId, type));
@@ -36,9 +42,12 @@ public class WalletService {
     }
 
     public void deductMoney(Long userId, String userType, double amount) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required for wallet debit");
+        }
         UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
-                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for userId: " + userId));
+                .orElseGet(() -> createWallet(userId, type));
 
         if (wallet.getBalance().compareTo(BigDecimal.valueOf(amount)) < 0) {
             throw new IllegalStateException("Insufficient balance in wallet for userId: " + userId);
@@ -50,6 +59,9 @@ public class WalletService {
     }
 
     public void creditMoney(Long userId, String userType, double amount) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required for wallet credit");
+        }
         UserType type = parseUserType(userType);
         Wallet wallet = walletRepository.findByUserIdAndUserType(userId, type)
                 .orElseGet(() -> createWallet(userId, type));

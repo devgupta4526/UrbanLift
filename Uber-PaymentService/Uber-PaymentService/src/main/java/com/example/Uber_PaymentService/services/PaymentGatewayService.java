@@ -4,7 +4,6 @@ import com.example.Uber_EntityService.Models.Payment;
 import com.example.Uber_PaymentService.dtos.*;
 import com.example.Uber_PaymentService.producers.KafkaProducerService;
 import com.example.Uber_PaymentService.repositories.PaymentRepository;
-import com.example.Uber_PaymentService.repositories.WalletRepository;
 import com.example.Uber_PaymentService.services.WalletService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +22,11 @@ public class PaymentGatewayService {
     private boolean mock;
 
     private final PaymentRepository paymentRepository;
-    private final WalletRepository walletRepository;
     private final WalletService walletService;
     private final KafkaProducerService kafkaProducerService;
 
-    public PaymentGatewayService(PaymentRepository paymentRepository, WalletRepository walletRepository, WalletService walletService, KafkaProducerService kafkaProducerService) {
+    public PaymentGatewayService(PaymentRepository paymentRepository, WalletService walletService, KafkaProducerService kafkaProducerService) {
         this.paymentRepository = paymentRepository;
-        this.walletRepository = walletRepository;
         this.walletService = walletService;
         this.kafkaProducerService = kafkaProducerService;
     }
@@ -90,7 +87,12 @@ public class PaymentGatewayService {
     public void processPaymentForCompletedBooking(BookingCompletedEventDto event) {
         logger.info("Processing payment for completed booking: {}", event.getBookingId());
 
-        // Create payment record
+        if (event.getFare() == null) {
+            logger.warn("Skipping payment settlement for booking {}: fare is null", event.getBookingId());
+            return;
+        }
+
+        // Create payment record (ride settlement — passenger checkout may occur separately via /payment/initiate + confirm)
         Payment payment = Payment.builder()
                 .bookingId(event.getBookingId())
                 .amount(event.getFare())
@@ -98,11 +100,15 @@ public class PaymentGatewayService {
                 .build();
         payment = paymentRepository.save(payment);
 
-        // Deduct from passenger wallet
-        walletService.deductMoney(event.getPassengerId(), "PASSENGER", event.getFare().doubleValue());
+        // Do not debit internal passenger wallet here: this Kafka handler runs when the ride completes,
+        // typically before the rider completes card/mock checkout, and most passengers have no prepaid wallet row.
+        // Wallet debit belongs to top-up flows or explicit wallet-based payment, not automatic trip completion.
 
-        // Credit to driver wallet
-        walletService.creditMoney(event.getDriverId(), "DRIVER", event.getFare().doubleValue());
+        if (event.getDriverId() != null) {
+            walletService.creditMoney(event.getDriverId(), "DRIVER", event.getFare().doubleValue());
+        } else {
+            logger.warn("No driverId on booking completed event {}; driver wallet not credited", event.getBookingId());
+        }
 
         // Send payment completed event
         PaymentCompletedEventDto completedEvent = new PaymentCompletedEventDto();
