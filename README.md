@@ -2,7 +2,7 @@
 
 **UrbanLift** is a full-stack, microservices-style ride-hailing demo inspired by modern mobility apps. It showcases **distributed backend architecture**, **event-driven integration**, and a **production-minded React SPA** with validated forms, multi-role flows (rider + driver), and end-to-end trip and payment scenarios.
 
-Use this project to demonstrate to recruiters that you can design **service boundaries**, work with **Spring Boot / cloud-native patterns**, **messaging**, **persistence**, and **typed frontends**—not only CRUD in a single monolith.
+This project to demonstrates to recruiters that I can design **service boundaries**, work with **Spring Boot / cloud-native patterns**, **messaging**, **persistence**, and **typed frontends**—not only CRUD in a single monolith.
 
 ---
 
